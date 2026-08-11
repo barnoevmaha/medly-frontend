@@ -48,18 +48,20 @@ export default function Dashboard() {
         to: "/leaderboard",
       },
       {
+        label: "Streak",
+        value: profile ? `${profile.streak_days}` : "—",
+        detail: profile && profile.longest_streak > profile.streak_days
+          ? `Best ${profile.longest_streak} days`
+          : "Days in a row",
+        tone: "text-warning",
+        to: "/profile",
+      },
+      {
         label: "Badges",
         value: profile ? String(profile.badge_count) : "—",
         detail: "View your badges",
-        tone: "text-warning",
-        to: "/profile?tab=badges",
-      },
-      {
-        label: "Saved",
-        value: profile ? String(profile.saved_count) : "—",
-        detail: "Articles, books, PDFs, videos",
         tone: "text-accent",
-        to: "/saved",
+        to: "/profile?tab=badges",
       },
     ],
     [profile]
@@ -73,16 +75,14 @@ export default function Dashboard() {
         <div>
           <h1 className="font-display text-3xl font-bold md:text-4xl">{greeting}</h1>
           <p className="mt-1 text-muted-foreground">
-            {profile?.certified
-              ? "You are certified for AI-assisted analysis. Keep the streak going."
-              : "Finish the AI Safety certification to unlock AI-assisted imaging."}
+            {profile && profile.streak_days > 1
+              ? `${profile.streak_days}-day streak — keep it going.`
+              : "Answer a question or finish a lesson to start a streak."}
           </p>
         </div>
-        {profile && !profile.certified && (
-          <Link to="/learn">
-            <Button variant="accent">Start certification</Button>
-          </Link>
-        )}
+        <Link to="/learn">
+          <Button variant="outline">Continue AI Training</Button>
+        </Link>
       </header>
 
       {error && <ErrorState message={error} />}
@@ -105,9 +105,7 @@ export default function Dashboard() {
         <Card className="mb-10 overflow-hidden p-0 shadow-medium">
           <div className="gradient-primary p-6 text-primary-foreground md:p-8">
             <Badge className="bg-white/20 text-white">Featured challenge</Badge>
-            <h3 className="mt-3 font-display text-2xl font-bold">
-              {featured.emoji} {featured.title}
-            </h3>
+            <h3 className="mt-3 font-display text-xl font-bold">{featured.title}</h3>
             <p className="mt-2 max-w-xl text-primary-foreground/90">{featured.description}</p>
             <div className="mt-5 flex flex-wrap items-center gap-4">
               <Button

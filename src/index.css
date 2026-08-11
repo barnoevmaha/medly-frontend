@@ -118,6 +118,23 @@
     }
   }
 
+  /* One visible focus style for everything reachable by keyboard. Applied via
+     :focus-visible so it appears for keyboard and assistive tech without
+     ringing every mouse click. */
+  :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+    border-radius: calc(var(--radius) - 4px);
+  }
+
+  /* Skip link — first thing in the tab order, invisible until focused. */
+  .skip-link {
+    @apply sr-only;
+  }
+  .skip-link:focus-visible {
+    @apply not-sr-only fixed left-4 top-4 z-[200] rounded-xl bg-card px-4 py-2 text-sm font-semibold shadow-medium;
+  }
+
   * { @apply border-border; }
   body {
     @apply bg-background text-foreground font-sans antialiased;

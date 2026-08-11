@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeft, Medal, ShieldCheck, Trophy } from "lucide-react";
+import { ArrowLeft, Medal, Trophy } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { Avatar } from "@/components/ui/avatar";
 import { ErrorState, LoadingState } from "@/components/ui/states";
 import { api, type LeaderboardRow, type Profile } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -47,7 +48,7 @@ export default function Leaderboard() {
 
       <PageHeader
         title="Leaderboard"
-        subtitle="Ranked by points earned from challenges, quizzes and certification"
+        subtitle="Ranked by points earned from challenges, quizzes and lessons"
       />
 
       {error && <ErrorState message={error} onRetry={() => void load()} />}
@@ -57,8 +58,8 @@ export default function Leaderboard() {
         <Card className="mb-6 p-6 shadow-medium">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-4">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl gradient-primary shadow-glow">
-                <Trophy className="h-7 w-7 text-primary-foreground" />
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                <Trophy className="h-7 w-7" aria-hidden="true" />
               </div>
               <div>
                 <div className="text-sm text-muted-foreground">Your position</div>
@@ -99,19 +100,11 @@ export default function Leaderboard() {
                   </span>
                 )}
               </div>
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl gradient-primary font-display text-sm font-bold text-primary-foreground">
-                {row.name.split(" ").map((word) => word[0]).slice(0, 2).join("")}
-              </div>
+              <Avatar name={row.name} className="h-10 w-10 shrink-0 text-xs" />
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="truncate font-semibold">{row.name}</span>
                   {row.you && <Badge>You</Badge>}
-                  {row.certified && (
-                    <Badge variant="success">
-                      <ShieldCheck className="h-3 w-3" />
-                      Certified
-                    </Badge>
-                  )}
                 </div>
                 <div className="truncate text-sm text-muted-foreground">
                   {row.institution || "Medly"}

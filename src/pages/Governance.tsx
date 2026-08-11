@@ -125,7 +125,7 @@ export default function Governance() {
         <Card className="p-5">
           <h3 className="font-display font-bold">Certification</h3>
           <div className="mt-3 font-display text-3xl font-bold text-gradient">
-            {summary.certified_users}/{summary.total_users}
+            {summary.total_users}
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
             users cleared to use AI-assisted analysis

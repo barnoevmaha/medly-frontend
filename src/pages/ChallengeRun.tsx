@@ -9,6 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/components/ui/toast";
 import { ErrorState, LoadingState } from "@/components/ui/states";
+import { Icon } from "@/components/ui/icon";
+import { FilmViewer } from "@/components/imaging/FilmViewer";
 import { useSession } from "@/lib/session";
 import { api, type AnswerResult, type ChallengeDetail } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -167,8 +169,8 @@ export default function ChallengeRun() {
         </Link>
 
         <Card className="p-8 text-center shadow-medium">
-          <div className="text-5xl" aria-hidden>
-            {challenge.emoji}
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+            <Icon name={challenge.icon} className="h-7 w-7" />
           </div>
           <h1 className="mt-4 font-display text-2xl font-bold">{challenge.title}</h1>
           <Badge className="mt-3" variant="success">
@@ -236,8 +238,9 @@ export default function ChallengeRun() {
       <Card className="mb-6 p-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h1 className="font-display text-2xl font-bold">
-              {challenge.emoji} {challenge.title}
+            <h1 className="flex items-center gap-2 font-display text-2xl font-bold">
+              <Icon name={challenge.icon} className="h-6 w-6 text-primary" />
+              {challenge.title}
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">{challenge.description}</p>
             <p className="mt-2 text-xs text-muted-foreground">Topic: {challenge.topic}</p>
@@ -269,6 +272,22 @@ export default function ChallengeRun() {
           </div>
 
           <h2 className="mt-4 font-display text-xl font-bold leading-snug">{question.prompt}</h2>
+
+          {question.image_seed && (
+            <figure className="mt-5">
+              <div className="mx-auto max-w-sm">
+                <FilmViewer
+                  caseRef={question.image_seed}
+                  modality={question.image_modality === "ct" ? "ct" : "xray"}
+                  findings={[]}
+                  revealed={false}
+                />
+              </div>
+              <figcaption className="mt-2 text-xs text-muted-foreground">
+                {question.image_alt}
+              </figcaption>
+            </figure>
+          )}
 
           <div className="mt-6 space-y-3">
             {question.choices.map((choice) => {

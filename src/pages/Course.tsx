@@ -92,7 +92,7 @@ export default function Course() {
     );
   }
 
-  const exam = quizzes.find((q) => q.is_certification) ?? quizzes[0];
+  const exam = quizzes[0];
   const allDone = course.progress_pct === 100;
   const position = lesson ? course.lessons.findIndex((item) => item.id === lesson.id) : -1;
   const previous = position > 0 ? course.lessons[position - 1] : null;
@@ -110,17 +110,10 @@ export default function Course() {
       </Link>
 
       <PageHeader
-        title={`${course.emoji} ${course.title}`}
+        title={course.title}
         subtitle={course.summary}
         action={
-          course.is_certification ? (
-            <Badge variant="accent">
-              <ShieldCheck className="h-3 w-3" />
-              Certification track
-            </Badge>
-          ) : (
-            <Badge variant="muted">{course.level}</Badge>
-          )
+<Badge variant="muted">{course.level}</Badge>
         }
       />
 

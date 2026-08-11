@@ -2,12 +2,13 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
   Award, BookMarked, ChevronRight, Crown, GraduationCap, Lock, MessageSquare,
-  Settings as SettingsIcon, ShieldCheck, Trophy, Users,
+  Settings as SettingsIcon, Trophy, Users,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
+import { Icon } from "@/components/ui/icon";
 import { ErrorState, LoadingState } from "@/components/ui/states";
 import {
   api,
@@ -127,12 +128,6 @@ export default function Profile() {
                   Premium
                 </Badge>
               )}
-              {profile.certified && (
-                <Badge variant="success">
-                  <ShieldCheck className="h-3 w-3" />
-                  Certified
-                </Badge>
-              )}
               {profile.role !== "student" && <Badge variant="info">{profile.role}</Badge>}
             </div>
             <p className="mt-0.5 text-muted-foreground">{profile.handle}</p>
@@ -183,7 +178,7 @@ export default function Profile() {
             className={cn(
               "whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-medium transition-colors",
               tab === item.key
-                ? "gradient-primary text-primary-foreground shadow-soft"
+                ? "bg-primary text-primary-foreground"
                 : "bg-card text-muted-foreground hover:bg-muted"
             )}
           >
@@ -209,8 +204,10 @@ export default function Profile() {
                 <dd className="font-semibold">{profile.challenges_completed}</dd>
               </div>
               <div className="flex justify-between">
-                <dt className="text-muted-foreground">Competency score</dt>
-                <dd className="font-semibold">{profile.competency_score}%</dd>
+                <dt className="text-muted-foreground">Current streak</dt>
+                <dd className="font-semibold">
+                  {profile.streak_days} day{profile.streak_days === 1 ? "" : "s"}
+                </dd>
               </div>
             </dl>
             <Link to="/learn">
@@ -265,8 +262,12 @@ export default function Profile() {
                   !badge.earned && "opacity-60"
                 )}
               >
-                <div className="text-3xl" aria-hidden>
-                  {badge.earned ? badge.emoji : "🔒"}
+                <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                  {badge.earned ? (
+                    <Icon name={badge.icon} />
+                  ) : (
+                    <Lock className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
+                  )}
                 </div>
                 <div className="mt-2 text-sm font-semibold">{badge.label}</div>
                 <div className="mt-1 text-xs text-muted-foreground">
@@ -319,7 +320,7 @@ export default function Profile() {
                 <Link key={community.id} to={`/community/${community.slug}`}>
                   <Card className="h-full p-5 card-hover">
                     <h3 className="flex items-center gap-2 font-display text-lg font-bold">
-                      <span aria-hidden>{community.emoji}</span>
+                      <Icon name={community.icon} className="h-5 w-5 text-primary" />
                       {community.name}
                     </h3>
                     <p className="mt-2 text-sm text-muted-foreground">{community.description}</p>

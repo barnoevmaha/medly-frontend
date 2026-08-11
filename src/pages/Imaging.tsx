@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  AlertTriangle, Check, Eye, EyeOff, Lock, Loader2, Plus, Scan, ShieldAlert,
-  ShieldCheck, ThumbsDown, ThumbsUp, UserRound,
+  AlertTriangle, Check, Eye, EyeOff, Loader2, Plus, Scan, ShieldAlert,
+  ThumbsDown, ThumbsUp, UserRound,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -28,8 +28,8 @@ function stepOf(job: AnalysisJob | null): number {
  * The anti-automation-bias workbench.
  *
  * The server enforces the order — `POST /analyze` returns 409 until a reading
- * exists, and 403 until the account is certified. The UI mirrors that rather
- * than implementing its own version of it, so the two cannot drift apart.
+ * exists. The UI mirrors that rather than implementing its own version of it,
+ * so the two cannot drift apart.
  */
 export default function Imaging() {
   const [me, setMe] = useState<Me | null>(null);
@@ -134,51 +134,15 @@ export default function Imaging() {
   }
 
   const step = stepOf(job);
-  const locked = me ? !me.certified && me.role === "student" : false;
 
   return (
     <>
       <PageHeader
         title="Imaging workbench"
         subtitle="Read the film yourself first. Only then does the model speak."
-        action={
-          me?.certified ? (
-            <Badge variant="success">
-              <ShieldCheck className="h-3 w-3" />
-              Certified
-            </Badge>
-          ) : (
-            <Badge variant="warning">
-              <Lock className="h-3 w-3" />
-              AI locked
-            </Badge>
-          )
-        }
       />
 
       <ImagingTabs />
-
-      {locked && (
-        <Card className="mb-6 border-warning/30 bg-warning/5 p-5">
-          <div className="flex items-start gap-3">
-            <Lock className="mt-0.5 h-5 w-5 shrink-0 text-warning" />
-            <div>
-              <h3 className="font-display font-bold">AI-assisted analysis is locked</h3>
-              <p className="mt-1 text-sm text-muted-foreground">
-                You can still create a case and record your own reading — that part is the
-                point. The model will not run until you pass the safety certification, and
-                that gate lives on the server, not in this interface.
-              </p>
-              <Link to="/learn">
-                <Button className="mt-3" size="sm" variant="accent">
-                  <ShieldCheck className="h-4 w-4" />
-                  Go to certification
-                </Button>
-              </Link>
-            </div>
-          </div>
-        </Card>
-      )}
 
       <div className="grid gap-6 lg:grid-cols-[300px_1fr]">
         {/* ---------------- case list ---------------- */}
@@ -341,7 +305,7 @@ export default function Imaging() {
                   />
                   <div>
                     <h3 className="font-display font-bold">
-                      {error.status === 403 && "Blocked — HTTP 403, certification required"}
+                      {error.status === 403 && "Blocked — HTTP 403, not permitted"}
                       {error.status === 409 && "Blocked — HTTP 409, wrong order"}
                       {error.status !== 403 && error.status !== 409 && "Request failed"}
                     </h3>

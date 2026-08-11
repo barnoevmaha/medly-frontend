@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { Cover } from "@/components/ui/cover";
 import { useToast } from "@/components/ui/toast";
 import { EmptyState, ErrorState, SkeletonCard } from "@/components/ui/states";
 import { api, type LibraryResource } from "@/lib/api";
@@ -35,6 +36,8 @@ export default function Library() {
   const [open, setOpen] = useState<LibraryResource | null>(null);
   const [query, setQuery] = useState("");
   const [kind, setKind] = useState<Kind | null>(null);
+  const [level, setLevel] = useState<string | null>(null);
+  const [topic, setTopic] = useState<string | null>(null);
   const [savedCount, setSavedCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -57,17 +60,31 @@ export default function Library() {
     void load();
   }, [load]);
 
+  // One search box across the whole library: title, author, description,
+  // publisher and topic, on every type at once. The type tiles and the chips
+  // below narrow it; they do not replace it.
   const results = useMemo(() => {
     const needle = query.trim().toLowerCase();
     return resources.filter(
       (resource) =>
         (!kind || resource.kind === kind) &&
+        (!level || resource.level === level) &&
+        (!topic || resource.topic === topic) &&
         (!needle ||
-          `${resource.title} ${resource.author} ${resource.description}`
+          `${resource.title} ${resource.author} ${resource.description} ${resource.publisher} ${resource.topic}`
             .toLowerCase()
             .includes(needle))
     );
-  }, [resources, query, kind]);
+  }, [resources, query, kind, level, topic]);
+
+  const topics = useMemo(
+    () => Array.from(new Set(resources.map((r) => r.topic).filter(Boolean))).sort(),
+    [resources]
+  );
+  const levels = useMemo(
+    () => Array.from(new Set(resources.map((r) => r.level).filter(Boolean))).sort(),
+    [resources]
+  );
 
   async function toggleSave(resource: LibraryResource) {
     const next = !resource.saved;
@@ -124,15 +141,54 @@ export default function Library() {
         </div>
         <Button
           variant="outline"
+          disabled={!query && !kind && !level && !topic}
           onClick={() => {
             setKind(null);
+            setLevel(null);
+            setTopic(null);
             setQuery("");
           }}
         >
-          <Filter className="h-4 w-4" />
-          Clear
+          <Filter className="h-4 w-4" aria-hidden="true" />
+          Clear filters
         </Button>
       </div>
+
+      {(topics.length > 0 || levels.length > 0) && (
+        <div className="mb-8 flex flex-wrap gap-2">
+          {levels.map((value) => (
+            <button
+              key={value}
+              onClick={() => setLevel(level === value ? null : value)}
+              aria-pressed={level === value}
+              className={cn(
+                "rounded-full border px-3 py-1 text-xs font-medium capitalize transition-colors",
+                level === value
+                  ? "border-primary bg-primary/10 text-primary"
+                  : "border-border text-muted-foreground hover:bg-muted"
+              )}
+            >
+              {value}
+            </button>
+          ))}
+          <span className="mx-1 self-center text-border" aria-hidden="true">|</span>
+          {topics.map((value) => (
+            <button
+              key={value}
+              onClick={() => setTopic(topic === value ? null : value)}
+              aria-pressed={topic === value}
+              className={cn(
+                "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+                topic === value
+                  ? "border-primary bg-primary/10 text-primary"
+                  : "border-border text-muted-foreground hover:bg-muted"
+              )}
+            >
+              {value}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="mb-8 grid gap-4 sm:grid-cols-3">
         {(Object.keys(KINDS) as Kind[]).map((value) => {
@@ -144,8 +200,8 @@ export default function Library() {
               <Card
                 className={cn("flex items-center gap-4 p-5 card-hover", active && "ring-2 ring-primary")}
               >
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl gradient-primary shadow-glow">
-                  <Icon className="h-6 w-6 text-primary-foreground" />
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                  <Icon className="h-6 w-6" aria-hidden="true" />
                 </div>
                 <div>
                   <div className="font-display font-bold">{KINDS[value].label}</div>
@@ -179,46 +235,47 @@ export default function Library() {
           body="Try a different search term or clear the filter."
         />
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2">
           {results.map((resource) => {
             const Icon = KINDS[resource.kind].icon;
             return (
-              <Card key={resource.id} className="flex flex-col p-5 card-hover animate-fade-in">
-                <div className="flex items-start justify-between gap-3">
-                  <div
-                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl"
-                    style={{ background: `hsl(${resource.cover_hue} 70% 92% / 0.35)` }}
-                  >
-                    <Icon className="h-5 w-5" style={{ color: `hsl(${resource.cover_hue} 60% 50%)` }} />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="muted">{KINDS[resource.kind].singular}</Badge>
-                    {resource.premium && (
-                      <Badge variant="accent">
-                        <Crown className="h-3 w-3" />
-                        Premium
-                      </Badge>
-                    )}
-                  </div>
+              <Card key={resource.id} className="flex gap-4 p-4 card-hover animate-fade-in">
+                <div className="w-20 shrink-0 overflow-hidden rounded-lg border border-border sm:w-24">
+                  <Cover src={resource.cover} width={180} height={240} />
+                </div>
+                <div className="flex min-w-0 flex-1 flex-col">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant="muted">
+                    <Icon className="h-3 w-3" aria-hidden="true" />
+                    {KINDS[resource.kind].singular}
+                  </Badge>
+                  {resource.premium && (
+                    <Badge variant="accent">
+                      <Crown className="h-3 w-3" aria-hidden="true" />
+                      Premium
+                    </Badge>
+                  )}
                 </div>
 
-                <h3 className="mt-4 font-display font-bold leading-snug">{resource.title}</h3>
-                <p className="mt-1 text-sm text-muted-foreground">{resource.author}</p>
+                <h3 className="mt-2 font-display font-bold leading-snug">{resource.title}</h3>
+                <p className="mt-0.5 text-sm text-muted-foreground">{resource.author}</p>
                 <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">
                   {resource.description}
                 </p>
 
-                <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
+                <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                   <span className="flex items-center gap-1">
-                    <Star className="h-4 w-4 fill-warning text-warning" />
+                    <Star className="h-3.5 w-3.5 fill-warning text-warning" aria-hidden="true" />
                     {resource.rating}
                   </span>
-                  <span>{resource.duration || `${resource.downloads} downloads`}</span>
+                  {resource.year ? <span>{resource.publisher} · {resource.year}</span> : null}
+                  {resource.pages ? <span>{resource.pages} pages</span> : null}
+                  {resource.duration ? <span>{resource.duration}</span> : null}
                 </div>
 
-                <div className="mt-auto flex gap-2 pt-5">
+                <div className="mt-auto flex gap-2 pt-4">
                   <Button className="flex-1" size="sm" onClick={() => setOpen(resource)}>
-                    Open
+                    Open<span className="sr-only"> {resource.title}</span>
                   </Button>
                   <Button
                     size="sm"
@@ -230,6 +287,7 @@ export default function Library() {
                     <Bookmark className={cn("h-4 w-4", resource.saved && "fill-current")} />
                     {resource.saved ? "Saved" : "Save"}
                   </Button>
+                </div>
                 </div>
               </Card>
             );

@@ -16,9 +16,12 @@ export function AppLayout() {
 
   return (
     <div className="min-h-screen bg-background">
+      <a href="#main" className="skip-link">
+        Skip to main content
+      </a>
       <Sidebar />
       <MobileNav />
-      <main className="px-4 pb-24 pt-6 md:ml-64 md:px-8 md:pb-10">
+      <main id="main" className="px-4 pb-24 pt-6 md:ml-64 md:px-8 md:pb-10">
         <div className="mx-auto max-w-5xl">
           <Outlet />
         </div>

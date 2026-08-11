@@ -8,6 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { Avatar } from "@/components/ui/avatar";
+import { IconTile } from "@/components/ui/icon";
 import { EmptyState, ErrorState, SkeletonCard } from "@/components/ui/states";
 import { useToast } from "@/components/ui/toast";
 import {
@@ -108,8 +110,8 @@ export default function Challenges() {
       <div className="mb-10 grid gap-4 sm:grid-cols-3">
         {stats.map((stat) => (
           <Card key={stat.label} className="flex items-center gap-4 p-5 card-hover">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl gradient-primary shadow-glow">
-              <stat.icon className="h-6 w-6 text-primary-foreground" />
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <stat.icon className="h-6 w-6" aria-hidden="true" />
             </div>
             <div>
               <div className="font-display text-2xl font-bold">{stat.value}</div>
@@ -119,15 +121,7 @@ export default function Challenges() {
         ))}
       </div>
 
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="font-display text-2xl font-bold">Active Challenges</h2>
-        <Link to="/leaderboard">
-          <Button variant="link" size="sm">
-            Full leaderboard
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </Link>
-      </div>
+      <h2 className="mb-4 font-display text-2xl font-bold">Active challenges</h2>
 
       {loading ? (
         <div className="mb-12 grid gap-4 sm:grid-cols-2">
@@ -149,9 +143,7 @@ export default function Challenges() {
             return (
               <Card key={challenge.id} className="flex flex-col p-5 card-hover animate-fade-in">
                 <div className="flex items-start justify-between gap-3">
-                  <span className="text-3xl" aria-hidden>
-                    {challenge.emoji}
-                  </span>
+                  <IconTile name={challenge.icon} />
                   <div className="flex items-center gap-2">
                     <Badge
                       variant={
@@ -217,10 +209,11 @@ export default function Challenges() {
       )}
 
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="font-display text-2xl font-bold">Leaderboard</h2>
+        <h2 className="font-display text-2xl font-bold">Top of the leaderboard</h2>
         <Link to="/leaderboard">
           <Button variant="link" size="sm">
-            View all
+            Full ranking
+            <ChevronRight className="h-4 w-4" aria-hidden="true" />
           </Button>
         </Link>
       </div>
@@ -237,9 +230,7 @@ export default function Challenges() {
                 <span className="font-display font-bold text-muted-foreground">#{row.rank}</span>
               )}
             </div>
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl gradient-primary font-display text-sm font-bold text-primary-foreground">
-              {row.name.split(" ").map((word) => word[0]).slice(0, 2).join("")}
-            </div>
+            <Avatar name={row.name} className="h-10 w-10 shrink-0 text-xs" />
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
                 <span className="truncate font-semibold">{row.name}</span>

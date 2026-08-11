@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar } from "@/components/ui/avatar";
+import { Icon } from "@/components/ui/icon";
 import { useToast } from "@/components/ui/toast";
 import { ErrorState, LoadingState } from "@/components/ui/states";
 import {
@@ -120,7 +121,7 @@ export default function CommunityRoom() {
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
             <h1 className="flex items-center gap-2 font-display text-2xl font-bold md:text-3xl">
-              <span aria-hidden>{community.emoji}</span>
+              <Icon name={community.icon} className="h-6 w-6 text-primary" />
               {community.name}
             </h1>
             <p className="mt-1 text-muted-foreground">{community.description}</p>

@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { Cover } from "@/components/ui/cover";
 import { useToast } from "@/components/ui/toast";
 import { EmptyState, ErrorState, SkeletonCard } from "@/components/ui/states";
 import { api, type SavedEntry, type SavedType } from "@/lib/api";
@@ -111,7 +112,7 @@ export default function Saved() {
             className={cn(
               "whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-medium transition-colors",
               tab === item.key
-                ? "gradient-primary text-primary-foreground shadow-soft"
+                ? "bg-primary text-primary-foreground"
                 : "bg-card text-muted-foreground hover:bg-muted"
             )}
           >
@@ -152,26 +153,25 @@ export default function Saved() {
             const Icon = meta.icon;
             const internal = entry.href.startsWith("/");
             return (
-              <Card key={entry.id} className="flex flex-col p-5 card-hover animate-fade-in">
-                <div className="flex items-start justify-between gap-3">
-                  <div
-                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl"
-                    style={{ background: `hsl(${entry.cover_hue} 70% 92% / 0.35)` }}
-                  >
-                    <Icon className="h-5 w-5" style={{ color: `hsl(${entry.cover_hue} 60% 50%)` }} />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="muted">{meta.label}</Badge>
-                    {entry.premium && (
-                      <Badge variant="accent">
-                        <Crown className="h-3 w-3" />
-                        Premium
-                      </Badge>
-                    )}
-                  </div>
+              <Card key={entry.id} className="flex gap-4 p-4 card-hover animate-fade-in">
+                <div className="w-20 shrink-0 overflow-hidden rounded-lg border border-border">
+                  <Cover src={entry.cover} width={180} height={240} />
+                </div>
+                <div className="flex min-w-0 flex-1 flex-col">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant="muted">
+                    <Icon className="h-3 w-3" aria-hidden="true" />
+                    {meta.label}
+                  </Badge>
+                  {entry.premium && (
+                    <Badge variant="accent">
+                      <Crown className="h-3 w-3" aria-hidden="true" />
+                      Premium
+                    </Badge>
+                  )}
                 </div>
 
-                <h3 className="mt-4 font-display font-bold leading-snug">{entry.title}</h3>
+                <h3 className="mt-2 font-display font-bold leading-snug">{entry.title}</h3>
                 {entry.subtitle && (
                   <p className="mt-1 text-sm text-muted-foreground">{entry.subtitle}</p>
                 )}
@@ -182,7 +182,7 @@ export default function Saved() {
                 )}
                 {entry.meta && <p className="mt-3 text-xs text-muted-foreground">{entry.meta}</p>}
 
-                <div className="mt-auto flex gap-2 pt-5">
+                <div className="mt-auto flex gap-2 pt-4">
                   {internal ? (
                     <Link to={entry.href} className="flex-1">
                       <Button className="w-full" size="sm">
@@ -210,9 +210,10 @@ export default function Saved() {
                     onClick={() => void remove(entry)}
                     aria-label={`Remove ${entry.title} from Saved`}
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Trash2 className="h-4 w-4" aria-hidden="true" />
                     Remove
                   </Button>
+                </div>
                 </div>
               </Card>
             );

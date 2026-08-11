@@ -9,9 +9,9 @@ import { useSession } from "@/lib/session";
 import { site } from "@/config/site";
 
 const DEMO_ACCOUNTS = [
-  { email: "student@medly.dev", note: "not certified — AI locked" },
-  { email: "certified@medly.dev", note: "certified — AI unlocked" },
-  { email: "instructor@medly.dev", note: "sees all audit data" },
+  { email: "student@medly.dev", note: "free student" },
+  { email: "premium@medly.dev", note: "premium — can create communities" },
+  { email: "instructor@medly.dev", note: "teacher — authors imaging cases" },
 ];
 
 export default function Login() {
@@ -20,7 +20,7 @@ export default function Login() {
   const { refresh } = useSession();
   // Set by AppLayout when it bounces an unauthenticated visit.
   const from = (location.state as { from?: string } | null)?.from;
-  const [email, setEmail] = useState("certified@medly.dev");
+  const [email, setEmail] = useState("premium@medly.dev");
   const [password, setPassword] = useState("medly1234");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);

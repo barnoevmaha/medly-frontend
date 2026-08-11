@@ -1,17 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
-  ArrowLeft, CheckCircle2, Loader2, RotateCcw, ShieldCheck, XCircle, Scan,
+  ArrowLeft, CheckCircle2, Loader2, RotateCcw, XCircle, Scan,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { api, type Quiz as QuizType, type QuizResult } from "@/lib/api";
 
 /**
- * The certification exam.
+ * A knowledge check.
  *
  * Correct answers are never sent to the client before submission — the payload
  * from `GET /api/quizzes/{id}` contains choices only. Grading happens on the
@@ -110,18 +109,7 @@ export default function Quiz() {
         AI Training
       </Link>
 
-      <PageHeader
-        title={quiz.title}
-        subtitle={quiz.description}
-        action={
-          quiz.is_certification ? (
-            <Badge variant="accent">
-              <ShieldCheck className="h-3 w-3" />
-              Unlocks AI analysis
-            </Badge>
-          ) : undefined
-        }
-      />
+      <PageHeader title={quiz.title} subtitle={quiz.description} />
 
       {/* ---------- score card ---------- */}
       {result && (
@@ -159,30 +147,15 @@ export default function Quiz() {
                 <RotateCcw className="h-4 w-4" />
                 Retake
               </Button>
-              {result.certified && (
-                <Link to="/imaging">
-                  <Button variant="accent">
-                    <Scan className="h-4 w-4" />
-                    Open imaging workbench
-                  </Button>
-                </Link>
-              )}
+              <Link to="/imaging">
+                <Button variant="outline">
+                  <Scan className="h-4 w-4" />
+                  Practise in the workbench
+                </Button>
+              </Link>
             </div>
           </div>
 
-          {result.certification_unlocked && (
-            <div className="mt-5 flex items-start gap-3 rounded-xl border border-success/30 bg-card p-4">
-              <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-success" />
-              <div>
-                <p className="font-display font-bold">AI-assisted analysis unlocked</p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Your account is now certified. The gate was enforced server-side, so this is a
-                  real permission change, not a UI state — the analysis endpoint will stop
-                  returning 403.
-                </p>
-              </div>
-            </div>
-          )}
         </Card>
       )}
 

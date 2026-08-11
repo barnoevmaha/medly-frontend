@@ -66,8 +66,6 @@ export interface Me {
   role: Role;
   institution?: string | null;
   year_of_study?: number | null;
-  certified: boolean;
-  competency_score: number;
   points: number;
   is_premium: boolean;
   show_on_leaderboard: boolean;
@@ -81,8 +79,7 @@ export interface CourseSummary {
   track: string;
   level: string;
   duration_minutes: number;
-  emoji: string;
-  is_certification: boolean;
+  icon: string;
   lesson_count: number;
   enrolled: boolean;
   progress_pct: number;
@@ -147,7 +144,6 @@ export interface GovernanceSummary {
   disclaimer_coverage: number;
   by_event_type: Record<string, number>;
   by_risk_level: Record<string, number>;
-  certified_users: number;
   total_users: number;
   confidence_threshold: number;
   pending_review: number;
@@ -163,7 +159,6 @@ export interface StandardRule {
 export interface SafetyStandard {
   version: string;
   confidence_threshold: number;
-  certification_pass_score: number;
   disclaimer: string;
   rules: StandardRule[];
 }
@@ -198,7 +193,6 @@ export interface Quiz {
   title: string;
   description: string;
   passing_score: number;
-  is_certification: boolean;
   questions: QuizQuestion[];
 }
 
@@ -216,9 +210,6 @@ export interface QuizResult {
   passed: boolean;
   passing_score: number;
   band: string;
-  certified: boolean;
-  /** True only on the attempt that flipped the account to certified. */
-  certification_unlocked: boolean;
   /** Non-zero only on the first pass of a given quiz. */
   points_awarded: number;
   total_points: number;
@@ -277,6 +268,8 @@ export interface ArticleSummary {
   author: string;
   author_role: string;
   read_minutes: number;
+  cover: string;
+  cover_alt: string;
   published_at: string;
   like_count: number;
   comment_count: number;
@@ -315,6 +308,12 @@ export interface LibraryResource {
   premium: boolean;
   url: string;
   cover_hue: number;
+  cover: string;
+  publisher: string;
+  year: number | null;
+  pages: number | null;
+  level: string;
+  topic: string;
   saved: boolean;
 }
 
@@ -329,6 +328,8 @@ export interface SavedEntry {
   meta: string;
   premium: boolean;
   cover_hue: number;
+  cover: string;
+  cover_alt: string;
   saved_at: string;
 }
 
@@ -340,7 +341,7 @@ export interface CommunitySummary {
   name: string;
   description: string;
   specialty: string;
-  emoji: string;
+  icon: string;
   members: number;
   messages: number;
   joined: boolean;
@@ -382,6 +383,9 @@ export interface ChallengeQuestion {
   prompt: string;
   points: number;
   choices: ChallengeChoice[];
+  image_seed: string | null;
+  image_alt: string;
+  image_modality: string;
   answered: boolean;
   correct: boolean | null;
   chosen_choice_id: number | null;
@@ -395,7 +399,7 @@ export interface ChallengeSummary {
   title: string;
   description: string;
   topic: string;
-  emoji: string;
+  icon: string;
   difficulty: "easy" | "medium" | "hard" | string;
   points: number;
   question_count: number;
@@ -437,10 +441,10 @@ export interface Profile {
   role: Role;
   institution: string;
   year_of_study: number | null;
-  certified: boolean;
-  competency_score: number;
   is_premium: boolean;
   points: number;
+  streak_days: number;
+  longest_streak: number;
   rank: number;
   total_users: number;
   badge_count: number;
@@ -454,7 +458,7 @@ export interface Profile {
 
 export interface BadgeState {
   key: string;
-  emoji: string;
+  icon: string;
   label: string;
   hint: string;
   earned: boolean;
@@ -467,7 +471,6 @@ export interface LeaderboardRow {
   name: string;
   institution: string;
   points: number;
-  certified: boolean;
   you: boolean;
 }
 
@@ -648,10 +651,12 @@ export const api = {
     request<ArticleSummary>(`/api/feed/articles/${slug}/like`, { method: "POST" }),
 
   /* library + saved */
-  resources: (params: { q?: string; kind?: string } = {}) => {
+  resources: (params: { q?: string; kind?: string; level?: string; topic?: string } = {}) => {
     const query = new URLSearchParams();
     if (params.q) query.set("q", params.q);
     if (params.kind) query.set("kind", params.kind);
+    if (params.level) query.set("level", params.level);
+    if (params.topic) query.set("topic", params.topic);
     const suffix = query.toString();
     return request<LibraryResource[]>(`/api/resources${suffix ? `?${suffix}` : ""}`);
   },

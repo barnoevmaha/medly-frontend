@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { Icon } from "@/components/ui/icon";
 import { useToast } from "@/components/ui/toast";
 import { EmptyState, ErrorState, SkeletonCard } from "@/components/ui/states";
 import { ApiError, api, type CommunityPermissions, type CommunitySummary } from "@/lib/api";
@@ -27,7 +28,7 @@ export default function Community() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [composing, setComposing] = useState(false);
-  const [form, setForm] = useState({ name: "", description: "", specialty: "", emoji: "🩺" });
+  const [form, setForm] = useState({ name: "", description: "", specialty: "" });
   const [creating, setCreating] = useState(false);
   const debounce = useRef<number>();
   const touched = useRef(false);
@@ -85,11 +86,10 @@ export default function Community() {
         name: form.name.trim(),
         description: form.description.trim(),
         specialty: form.specialty.trim() || "General",
-        emoji: form.emoji || "🩺",
       });
       toast(`${created.name} created`);
       setComposing(false);
-      setForm({ name: "", description: "", specialty: "", emoji: "🩺" });
+      setForm({ name: "", description: "", specialty: "" });
       navigate(`/community/${created.slug}`);
     } catch (e) {
       if (e instanceof ApiError && e.status === 403) {
@@ -155,22 +155,14 @@ export default function Community() {
         <Card className="mb-6 p-6 animate-fade-up">
           <h3 className="font-display text-lg font-bold">New community</h3>
           <form onSubmit={create} className="mt-4 space-y-3">
-            <div className="flex gap-3">
-              <Input
-                value={form.emoji}
-                onChange={(event) => setForm({ ...form, emoji: event.target.value.slice(0, 2) })}
-                className="w-16 text-center"
-                aria-label="Emoji"
-              />
-              <Input
-                value={form.name}
-                onChange={(event) => setForm({ ...form, name: event.target.value })}
-                placeholder="Community name"
-                required
-                minLength={3}
-                aria-label="Community name"
-              />
-            </div>
+            <Input
+              value={form.name}
+              onChange={(event) => setForm({ ...form, name: event.target.value })}
+              placeholder="Community name"
+              required
+              minLength={3}
+              aria-label="Community name"
+            />
             <Textarea
               rows={3}
               value={form.description}
@@ -213,7 +205,7 @@ export default function Community() {
             className={cn(
               "whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-medium transition-colors",
               filter === item
-                ? "gradient-primary text-primary-foreground shadow-soft"
+                ? "bg-primary text-primary-foreground"
                 : "bg-card text-muted-foreground hover:bg-muted"
             )}
           >
@@ -251,7 +243,7 @@ export default function Community() {
               <div className="flex items-start justify-between gap-3">
                 <Link to={`/community/${community.slug}`} className="group min-w-0">
                   <h3 className="flex items-center gap-2 font-display text-lg font-bold group-hover:text-primary">
-                    <span aria-hidden>{community.emoji}</span>
+                    <Icon name={community.icon} className="h-5 w-5 shrink-0 text-primary" />
                     <span className="truncate">{community.name}</span>
                   </h3>
                 </Link>

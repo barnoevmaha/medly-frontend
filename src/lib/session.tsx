@@ -12,7 +12,7 @@ import { api, clearToken, getToken, type Me } from "@/lib/api";
 interface Session {
   me: Me | null;
   loading: boolean;
-  /** Re-fetch after anything that changes points, premium or certification. */
+  /** Re-fetch after anything that changes points or premium. */
   refresh: () => Promise<Me | null>;
   logout: () => void;
 }
@@ -27,7 +27,7 @@ const SessionContext = createContext<Session>({
 /**
  * One `/api/auth/me` call for the whole app.
  *
- * Every page needed the current user — role, certification, premium, points —
+ * Every page needed the current user — role, premium, points —
  * and each one fetching it separately meant four identical requests per
  * navigation and four chances for them to disagree.
  */

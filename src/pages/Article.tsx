@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Markdown } from "@/components/ui/markdown";
 import { Avatar } from "@/components/ui/avatar";
+import { Cover } from "@/components/ui/cover";
 import { useToast } from "@/components/ui/toast";
 import { ErrorState, LoadingState } from "@/components/ui/states";
 import { api, type ArticleDetail } from "@/lib/api";
@@ -163,7 +164,15 @@ export default function Article() {
         Back
       </button>
 
-      <Card className="p-6 shadow-medium md:p-10">
+      <Card className="overflow-hidden p-0 shadow-medium">
+        <Cover
+          src={article.cover}
+          alt={article.cover_alt}
+          width={360}
+          height={200}
+          className="max-h-56 w-full border-b border-border object-cover"
+        />
+        <div className="p-6 md:p-10">
         <div className="flex flex-wrap items-center gap-3 text-sm">
           <Badge variant={article.tag === "Sponsored" ? "muted" : "default"}>{article.tag}</Badge>
           <span className="flex items-center gap-1.5 text-muted-foreground">
@@ -218,6 +227,7 @@ export default function Article() {
 
         <div className="mt-8">
           <Markdown>{article.body_md}</Markdown>
+        </div>
         </div>
       </Card>
 

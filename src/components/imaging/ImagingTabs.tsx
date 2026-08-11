@@ -20,7 +20,7 @@ export function ImagingTabs() {
             cn(
               "flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors",
               isActive
-                ? "gradient-primary text-primary-foreground shadow-soft"
+                ? "bg-primary text-primary-foreground"
                 : "text-muted-foreground hover:text-foreground"
             )
           }

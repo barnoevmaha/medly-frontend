@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import {
-  Bell, Eye, KeyRound, Loader2, LogOut, Monitor, Moon, Palette, ShieldCheck,
+  Bell, Eye, KeyRound, Loader2, LogOut, Monitor, Moon, Palette,
   Sun, Trash2, User as UserIcon,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -251,16 +251,9 @@ export default function Settings() {
                 <span className="text-muted-foreground">Role</span>
                 <Badge variant="info">{me.role}</Badge>
                 {me.is_premium && <Badge variant="accent">Premium</Badge>}
-                {me.certified && (
-                  <Badge variant="success">
-                    <ShieldCheck className="h-3 w-3" />
-                    Certified
-                  </Badge>
-                )}
               </div>
               <p className="mt-2 text-xs text-muted-foreground">
-                Email and role are set by your institution. Certification is earned, not
-                configured — take the exam under AI Training.
+                Email and role are set by your institution and cannot be changed here.
               </p>
             </div>
 

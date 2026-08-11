@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
+import { Cover } from "@/components/ui/cover";
 import { EmptyState, ErrorState, SkeletonCard } from "@/components/ui/states";
 import { api, type ArticleSummary } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -149,7 +150,7 @@ export function ArticleFeed({
                 className={cn(
                   "whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-medium transition-colors",
                   filter === item
-                    ? "gradient-primary text-primary-foreground shadow-soft"
+                    ? "bg-primary text-primary-foreground"
                     : "bg-card text-muted-foreground hover:bg-muted"
                 )}
               >
@@ -171,7 +172,17 @@ export function ArticleFeed({
       ) : (
         <div className={cn("space-y-4 transition-opacity", searching && "opacity-60")}>
           {visible.map((article) => (
-            <Card key={article.id} className="p-6 card-hover animate-fade-in">
+            <Card key={article.id} className="overflow-hidden p-0 card-hover animate-fade-in">
+              <div className="flex flex-col gap-5 p-6 sm:flex-row">
+              <Link
+                to={`/feed/${article.slug}`}
+                tabIndex={-1}
+                aria-hidden="true"
+                className="hidden w-40 shrink-0 overflow-hidden rounded-xl border border-border sm:block"
+              >
+                <Cover src={article.cover} width={360} height={200} />
+              </Link>
+              <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-3 text-sm">
                 <Badge variant={article.tag === "Sponsored" ? "muted" : "default"}>
                   {article.tag}
@@ -180,7 +191,7 @@ export function ArticleFeed({
                 <span className="text-muted-foreground">· {article.read_minutes} min read</span>
               </div>
 
-              <Link to={`/feed/${article.slug}`} className="group">
+              <Link to={`/feed/${article.slug}`} className="group block">
                 <h3 className="mt-3 font-display text-lg font-bold leading-snug group-hover:text-primary">
                   {article.title}
                 </h3>
@@ -233,6 +244,8 @@ export function ArticleFeed({
                     />
                   </button>
                 </div>
+              </div>
+              </div>
               </div>
             </Card>
           ))}
