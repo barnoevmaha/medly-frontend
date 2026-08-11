@@ -7,12 +7,14 @@ import { Badge } from "@/components/ui/badge";
 import { ArticleFeed } from "@/components/feed/ArticleFeed";
 import { ErrorState } from "@/components/ui/states";
 import { useSession } from "@/lib/session";
+import { useLanguage } from "@/lib/i18n";
 import { api, type ChallengeSummary, type Profile } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const { me } = useSession();
+  const { t } = useLanguage();
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [featured, setFeatured] = useState<ChallengeSummary | null>(null);
@@ -34,40 +36,43 @@ export default function Dashboard() {
   const stats = useMemo(
     () => [
       {
-        label: "Rank",
+        label: t("dashboard.statRank"),
         value: profile ? `#${profile.rank}` : "—",
-        detail: profile ? `of ${profile.total_users} students` : "",
+        detail: profile ? t("dashboard.ofStudents", { n: profile.total_users }) : "",
         tone: "text-primary",
         to: "/leaderboard",
       },
       {
-        label: "Points",
+        label: t("dashboard.statPoints"),
         value: profile ? profile.points.toLocaleString() : "—",
-        detail: "Earned from challenges & quizzes",
+        detail: t("dashboard.earnedFrom"),
         tone: "text-success",
         to: "/leaderboard",
       },
       {
-        label: "Streak",
+        label: t("dashboard.statStreak"),
         value: profile ? `${profile.streak_days}` : "—",
-        detail: profile && profile.longest_streak > profile.streak_days
-          ? `Best ${profile.longest_streak} days`
-          : "Days in a row",
+        detail:
+          profile && profile.longest_streak > profile.streak_days
+            ? t("dashboard.best", { n: profile.longest_streak })
+            : t("dashboard.daysInRow"),
         tone: "text-warning",
         to: "/profile",
       },
       {
-        label: "Badges",
+        label: t("dashboard.statBadges"),
         value: profile ? String(profile.badge_count) : "—",
-        detail: "View your badges",
+        detail: t("dashboard.viewBadges"),
         tone: "text-accent",
         to: "/profile?tab=badges",
       },
     ],
-    [profile]
+    [profile, t]
   );
 
-  const greeting = me ? `Welcome back, ${me.full_name.split(" ")[0]} 👋` : "Welcome back 👋";
+  const greeting = me
+    ? `${t("dashboard.welcome")}, ${me.full_name.split(" ")[0]} 👋`
+    : `${t("dashboard.welcome")} 👋`;
 
   return (
     <>
@@ -76,16 +81,16 @@ export default function Dashboard() {
           <h1 className="font-display text-3xl font-bold md:text-4xl">{greeting}</h1>
           <p className="mt-1 text-muted-foreground">
             {profile && profile.streak_days > 1
-              ? `${profile.streak_days}-day streak — keep it going.`
-              : "Answer a question or finish a lesson to start a streak."}
+              ? `${profile.streak_days}-${t("dashboard.streakKeepGoing")}`
+              : t("dashboard.streakStart")}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Link to="/learn">
-            <Button variant="outline">AI Training</Button>
+            <Button variant="outline">{t("dashboard.aiTraining")}</Button>
           </Link>
           <Link to="/imaging">
-            <Button variant="outline">Imaging workbench</Button>
+            <Button variant="outline">{t("dashboard.imagingWorkbench")}</Button>
           </Link>
         </div>
       </header>
@@ -109,7 +114,7 @@ export default function Dashboard() {
       {featured && (
         <Card className="mb-10 overflow-hidden p-0 shadow-medium">
           <div className="gradient-primary p-6 text-primary-foreground md:p-8">
-            <Badge className="bg-white/20 text-white">Featured challenge</Badge>
+            <Badge className="bg-white/20 text-white">{t("dashboard.featuredChallenge")}</Badge>
             <h3 className="mt-3 font-display text-xl font-bold">{featured.title}</h3>
             <p className="mt-2 max-w-xl text-primary-foreground/90">{featured.description}</p>
             <div className="mt-5 flex flex-wrap items-center gap-4">
@@ -118,16 +123,17 @@ export default function Dashboard() {
                 className="border-white/30 bg-white text-primary hover:bg-white/90"
                 onClick={() => navigate(`/challenges/${featured.slug}`)}
               >
-                {featured.joined ? "Continue challenge" : "Join challenge"}
+                {featured.joined ? t("dashboard.continueChallenge") : t("dashboard.joinChallenge")}
                 <ChevronRight className="h-4 w-4" />
               </Button>
               <span className="flex items-center gap-1.5 text-sm">
                 <Clock className="h-4 w-4" />
-                {featured.question_count} questions · {featured.points} pts
+                {featured.question_count} {t("dashboard.questions")} · {featured.points}{" "}
+                {t("dashboard.pts")}
               </span>
               <span className="flex items-center gap-1.5 text-sm">
                 <Users className="h-4 w-4" />
-                {featured.participants.toLocaleString()} joined
+                {featured.participants.toLocaleString()} {t("dashboard.joined")}
               </span>
             </div>
           </div>
@@ -136,10 +142,10 @@ export default function Dashboard() {
 
       <section>
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="font-display text-2xl font-bold">Latest in your feed</h2>
+          <h2 className="font-display text-2xl font-bold">{t("dashboard.latestFeed")}</h2>
           <Link to="/feed">
             <Button variant="link" size="sm">
-              Open Your Feed
+              {t("dashboard.openFeed")}
               <ChevronRight className="h-4 w-4" />
             </Button>
           </Link>

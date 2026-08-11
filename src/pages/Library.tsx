@@ -12,6 +12,7 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { Cover } from "@/components/ui/cover";
 import { useToast } from "@/components/ui/toast";
 import { EmptyState, ErrorState, SkeletonCard } from "@/components/ui/states";
+import { useLanguage } from "@/lib/i18n";
 import {
   api,
   type LibraryResource,
@@ -20,17 +21,7 @@ import {
 } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
-/* Tab order is deliberate: video first because it is what students open most,
-   Saved second because it is the thing they came back for. */
-const TABS = [
-  { key: "video", label: "Videos", icon: Video },
-  { key: "book", label: "Books", icon: BookOpen },
-  { key: "saved", label: "Saved", icon: Bookmark },
-] as const;
-
-type TabKey = (typeof TABS)[number]["key"];
-
-const CTA: Record<string, string> = { video: "Watch", book: "Read", pdf: "Read" };
+type TabKey = "video" | "book" | "saved";
 
 /** Videos open the player, everything else opens the reader. */
 function openPath(resource: { kind: string; slug: string }) {
@@ -49,11 +40,27 @@ const TYPE_ICON: Record<SavedType, typeof BookOpen> = {
  * Saved is a tab here rather than a nav entry of its own: it is a view of the
  * library filtered to your bookmarks, not a separate place. Saving never
  * removes anything from its type tab.
+ *
+ * Filtering is one derived state — { query, year, tab } — combined with AND
+ * logic in a single useMemo, so search, year and tab always agree with each
+ * other rather than three separate filters drifting out of sync.
  */
 export default function Library() {
   const toast = useToast();
+  const { t } = useLanguage();
   const [params, setParams] = useSearchParams();
   const tab = (params.get("tab") as TabKey) ?? "video";
+
+  const TABS: Array<{ key: TabKey; label: string; icon: typeof Video }> = [
+    { key: "video", label: t("library.videos"), icon: Video },
+    { key: "book", label: t("library.books"), icon: BookOpen },
+    { key: "saved", label: t("library.saved"), icon: Bookmark },
+  ];
+  const CTA: Record<string, string> = {
+    video: t("common.watch"),
+    book: t("common.read"),
+    pdf: t("common.read"),
+  };
 
   const [resources, setResources] = useState<LibraryResource[]>([]);
   const [saved, setSaved] = useState<SavedEntry[]>([]);
@@ -110,8 +117,9 @@ export default function Library() {
   const needle = query.trim().toLowerCase();
   const activeFilters = [level, topic, year].filter(Boolean).length + (needle ? 1 : 0);
 
-  /* One search box across the whole library — every tab, every field that
-     actually exists on the record. */
+  /* One filter state — query, year, tab — combined with AND logic. Year is a
+     "since" threshold (item.year >= selected), not an exact match, so picking
+     2023 surfaces everything published in or after 2023. */
   const visibleResources = useMemo(
     () =>
       resources.filter(
@@ -119,7 +127,7 @@ export default function Library() {
           (tab === "saved" || r.kind === tab) &&
           (!level || r.level === level) &&
           (!topic || r.topic === topic) &&
-          (!year || r.year === year) &&
+          (!year || (r.year ?? 0) >= year) &&
           (!needle ||
             `${r.title} ${r.author} ${r.description} ${r.publisher} ${r.topic}`
               .toLowerCase()
@@ -127,7 +135,6 @@ export default function Library() {
       ),
     [resources, tab, level, topic, year, needle]
   );
-
 
   const visibleSaved = useMemo(
     () =>
@@ -168,7 +175,6 @@ export default function Library() {
     }
   }
 
-
   async function removeSaved(entry: SavedEntry) {
     setSaved((current) => current.filter((item) => item.id !== entry.id));
     try {
@@ -189,10 +195,7 @@ export default function Library() {
 
   return (
     <>
-      <PageHeader
-        title="Library"
-        subtitle="Videos and books — plus everything you have saved"
-      />
+      <PageHeader title={t("library.title")} subtitle={t("library.subtitle")} />
 
       {/* ---------------- search + filters ---------------- */}
       <div className="mb-4 flex flex-wrap gap-3">
@@ -204,9 +207,9 @@ export default function Library() {
           <Input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search the whole library…"
+            placeholder={t("library.search")}
             className="pl-9"
-            aria-label="Search the library"
+            aria-label={t("library.search")}
             type="search"
           />
         </div>
@@ -216,7 +219,7 @@ export default function Library() {
           aria-expanded={filtersOpen}
         >
           <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
-          Filter
+          {t("library.filter")}
           {activeFilters > 0 && (
             <span className="ml-1 rounded-full bg-primary px-1.5 text-xs font-semibold text-primary-foreground">
               {activeFilters}
@@ -226,7 +229,7 @@ export default function Library() {
         {/* "Clear" only exists while something is filtered. */}
         {activeFilters > 0 && (
           <Button variant="ghost" onClick={clearFilters}>
-            Clear all
+            {t("library.clearAll")}
           </Button>
         )}
       </div>
@@ -235,15 +238,13 @@ export default function Library() {
         <Card className="mb-4 p-5 animate-fade-up">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <h2 className="font-display font-bold">Filters</h2>
-              <p className="mt-0.5 text-sm text-muted-foreground">
-                Built from the catalogue — only values that exist appear here.
-              </p>
+              <h2 className="font-display font-bold">{t("library.filters")}</h2>
+              <p className="mt-0.5 text-sm text-muted-foreground">{t("library.filtersHint")}</p>
             </div>
             <button
               onClick={() => setFiltersOpen(false)}
               className="rounded-lg p-2 text-muted-foreground hover:bg-muted"
-              aria-label="Close filters"
+              aria-label={t("common.close")}
             >
               <X className="h-4 w-4" />
             </button>
@@ -251,7 +252,7 @@ export default function Library() {
 
           <fieldset className="mt-4">
             <legend className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Level
+              {t("library.level")}
             </legend>
             <div className="mt-2 flex flex-wrap gap-2">
               {levels.map((value) => (
@@ -274,7 +275,7 @@ export default function Library() {
 
           <label className="mt-4 block">
             <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Year
+              {t("library.year")}
             </span>
             <select
               value={year ?? ""}
@@ -283,7 +284,7 @@ export default function Library() {
               }
               className="mt-2 h-11 w-full rounded-xl border border-input bg-card px-3 text-sm shadow-soft outline-none focus:ring-2 focus:ring-ring/40"
             >
-              <option value="">All years</option>
+              <option value="">{t("library.allYears")}</option>
               {years.map((value) => (
                 <option key={value} value={value}>
                   {value}
@@ -294,7 +295,7 @@ export default function Library() {
 
           <fieldset className="mt-4">
             <legend className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Subject
+              {t("library.subject")}
             </legend>
             <div className="mt-2 flex flex-wrap gap-2">
               {topics.map((value) => (
@@ -346,7 +347,7 @@ export default function Library() {
           )}
           {year && (
             <Badge variant="muted">
-              {year}
+              {year}+
               <button onClick={() => setYear(null)} aria-label={`Remove ${year} filter`}>
                 <X className="h-3 w-3" />
               </button>
@@ -393,12 +394,12 @@ export default function Library() {
         visibleSaved.length === 0 ? (
           <EmptyState
             icon={<Bookmark className="h-8 w-8" />}
-            title={needle ? "Nothing saved matches that" : "Nothing saved yet"}
-            body="Bookmark a video or a book and it collects here. Saving never removes it from its own tab."
+            title={needle ? t("library.nothingSavedMatches") : t("library.nothingSaved")}
+            body={t("library.savedHint")}
             action={
               <Button onClick={() => setParams({})}>
                 <Video className="h-4 w-4" aria-hidden="true" />
-                Browse videos
+                {t("library.browseVideos")}
               </Button>
             }
           />
@@ -435,7 +436,7 @@ export default function Library() {
                         className="flex-1"
                       >
                         <Button className="w-full" size="sm">
-                          {entry.item_type === "video" ? "Watch" : "Read"}
+                          {entry.item_type === "video" ? t("common.watch") : t("common.read")}
                         </Button>
                       </Link>
                       <Button
@@ -445,7 +446,7 @@ export default function Library() {
                         aria-label={`Remove ${entry.title} from Saved`}
                       >
                         <Trash2 className="h-4 w-4" aria-hidden="true" />
-                        Remove
+                        {t("common.remove")}
                       </Button>
                     </div>
                   </div>
@@ -458,12 +459,12 @@ export default function Library() {
       visibleResources.length === 0 ? (
         <EmptyState
           icon={<Search className="h-8 w-8" />}
-          title="Nothing here matches"
-          body="Try a different search term, or clear the filters."
+          title={t("library.nothingMatches")}
+          body={t("library.tryDifferent")}
           action={
             activeFilters > 0 ? (
               <Button variant="outline" onClick={clearFilters}>
-                Clear all
+                {t("library.clearAll")}
               </Button>
             ) : undefined
           }
@@ -474,7 +475,7 @@ export default function Library() {
             <Card key={resource.id} className="flex gap-4 p-4 card-hover animate-fade-in">
               <Link
                 to={openPath(resource)}
-                aria-label={`${CTA[resource.kind] ?? "Open"} ${resource.title}`}
+                aria-label={`${CTA[resource.kind] ?? t("common.open")} ${resource.title}`}
                 className="relative w-24 shrink-0 overflow-hidden rounded-lg border border-border"
               >
                 <Cover src={resource.cover} width={180} height={240} />
@@ -520,7 +521,7 @@ export default function Library() {
                 <div className="mt-auto flex gap-2 pt-4">
                   <Link to={openPath(resource)} className="flex-1">
                     <Button className="w-full" size="sm">
-                      {CTA[resource.kind] ?? "Open"}
+                      {CTA[resource.kind] ?? t("common.open")}
                       <span className="sr-only"> {resource.title}</span>
                     </Button>
                   </Link>

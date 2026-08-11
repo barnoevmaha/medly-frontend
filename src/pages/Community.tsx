@@ -14,14 +14,21 @@ import { PremiumButton } from "@/components/ui/premium-button";
 import { Cover } from "@/components/ui/cover";
 import { useToast } from "@/components/ui/toast";
 import { EmptyState, ErrorState, SkeletonCard } from "@/components/ui/states";
+import { useLanguage } from "@/lib/i18n";
 import { ApiError, api, type CommunityPermissions, type CommunitySummary } from "@/lib/api";
 import { cn } from "@/lib/utils";
-
-const FILTERS = ["All", "My Communities", "Popular", "New"];
 
 export default function Community() {
   const navigate = useNavigate();
   const toast = useToast();
+  const { t } = useLanguage();
+
+  const FILTERS = [
+    { key: "All", label: t("communities.filterAll") },
+    { key: "My Communities", label: t("communities.filterMine") },
+    { key: "Popular", label: t("communities.filterPopular") },
+    { key: "New", label: t("communities.filterNew") },
+  ];
 
   const [communities, setCommunities] = useState<CommunitySummary[]>([]);
   const [permissions, setPermissions] = useState<CommunityPermissions | null>(null);
@@ -112,16 +119,16 @@ export default function Community() {
   return (
     <>
       <PageHeader
-        title="Communities"
-        subtitle="Join communities based on your specialty interests"
+        title={t("communities.title")}
+        subtitle={t("communities.subtitle")}
         action={
           canCreate ? (
             <Button onClick={() => setComposing((value) => !value)}>
               {composing ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-              {composing ? "Cancel" : "Create Community"}
+              {composing ? t("communities.cancel") : t("communities.create")}
             </Button>
           ) : (
-            <PremiumButton label="Premium to create" />
+            <PremiumButton label={t("communities.premiumToCreate")} />
           )
         }
       />
@@ -131,11 +138,9 @@ export default function Community() {
           <div className="flex items-start gap-3">
             <Lock className="mt-0.5 h-5 w-5 shrink-0 text-accent" />
             <div>
-              <h3 className="font-display font-bold">Creating a community is a Premium feature</h3>
+              <h3 className="font-display font-bold">{t("communities.premiumFeatureTitle")}</h3>
               <p className="mt-1 text-sm text-muted-foreground">
-                You can join and take part in every community on Medly. Starting your own needs
-                Premium — and the rule is enforced by the API, so it holds for any client, not
-                just this page.
+                {t("communities.premiumFeatureBody")}
               </p>
               <PremiumButton className="mt-3" />
             </div>
@@ -145,21 +150,21 @@ export default function Community() {
 
       {composing && canCreate && (
         <Card className="mb-6 p-6 animate-fade-up">
-          <h3 className="font-display text-lg font-bold">New community</h3>
+          <h3 className="font-display text-lg font-bold">{t("communities.new")}</h3>
           <form onSubmit={create} className="mt-4 space-y-3">
             <Input
               value={form.name}
               onChange={(event) => setForm({ ...form, name: event.target.value })}
-              placeholder="Community name"
+              placeholder={t("communities.namePlaceholder")}
               required
               minLength={3}
-              aria-label="Community name"
+              aria-label={t("communities.namePlaceholder")}
             />
             <Textarea
               rows={3}
               value={form.description}
               onChange={(event) => setForm({ ...form, description: event.target.value })}
-              placeholder="What is this community for? This line appears under the title and is what community search matches."
+              placeholder={t("communities.descPlaceholder")}
               required
               minLength={10}
               aria-label="Description"
@@ -167,12 +172,12 @@ export default function Community() {
             <Input
               value={form.specialty}
               onChange={(event) => setForm({ ...form, specialty: event.target.value })}
-              placeholder="Specialty, e.g. Cardiology"
+              placeholder={t("communities.specialtyPlaceholder")}
               aria-label="Specialty"
             />
             <Button type="submit" disabled={creating}>
               {creating && <Loader2 className="h-4 w-4 animate-spin" />}
-              Create community
+              {t("communities.createButton")}
             </Button>
           </form>
         </Card>
@@ -183,25 +188,25 @@ export default function Community() {
         <Input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search communities by name or description…"
+          placeholder={t("communities.searchPlaceholder")}
           className="pl-9"
-          aria-label="Search communities"
+          aria-label={t("communities.searchPlaceholder")}
         />
       </div>
 
       <div className="mb-6 flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
         {FILTERS.map((item) => (
           <button
-            key={item}
-            onClick={() => setFilter(item)}
+            key={item.key}
+            onClick={() => setFilter(item.key)}
             className={cn(
               "whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-medium transition-colors",
-              filter === item
+              filter === item.key
                 ? "bg-primary text-primary-foreground"
                 : "bg-card text-muted-foreground hover:bg-muted"
             )}
           >
-            {item}
+            {item.label}
           </button>
         ))}
       </div>
@@ -216,7 +221,7 @@ export default function Community() {
       ) : communities.length === 0 ? (
         <EmptyState
           icon={<Users className="h-8 w-8" />}
-          title="No communities found"
+          title={t("communities.notFound")}
           body={
             query
               ? `Nothing matches “${query}” in a community name or description.`
@@ -224,7 +229,7 @@ export default function Community() {
           }
           action={
             <Button variant="outline" onClick={() => { setQuery(""); setFilter("All"); }}>
-              Clear search
+              {t("communities.clearSearch")}
             </Button>
           }
         />
@@ -252,11 +257,11 @@ export default function Community() {
                   </h3>
                 </Link>
                 <div className="flex shrink-0 items-center gap-2">
-                  {community.owned && <Badge variant="accent">Yours</Badge>}
+                  {community.owned && <Badge variant="accent">{t("communities.yours")}</Badge>}
                   {community.joined && (
                     <Badge variant="success">
                       <Check className="h-3 w-3" />
-                      Joined
+                      {t("communities.joined")}
                     </Badge>
                   )}
                 </div>
@@ -267,23 +272,23 @@ export default function Community() {
               <div className="mt-4 flex items-center gap-4 text-sm text-muted-foreground">
                 <span className="flex items-center gap-1.5">
                   <Users className="h-4 w-4" />
-                  {community.members.toLocaleString()} members
+                  {community.members.toLocaleString()} {t("communities.members")}
                 </span>
                 <span className="flex items-center gap-1.5">
                   <MessageSquare className="h-4 w-4" />
-                  {community.messages} messages
+                  {community.messages} {t("communities.messages")}
                 </span>
               </div>
 
               <div className="mt-auto flex gap-2 pt-5">
                 <Link to={`/community/${community.slug}`} className="flex-1">
-                  <Button className="w-full">Open chat</Button>
+                  <Button className="w-full">{t("communities.openChat")}</Button>
                 </Link>
                 <Button
                   variant="outline"
                   onClick={() => void toggleMembership(community)}
                 >
-                  {community.joined ? "Leave" : "Join"}
+                  {community.joined ? t("communities.leave") : t("communities.join")}
                 </Button>
               </div>
               </div>

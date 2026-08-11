@@ -13,6 +13,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Cover } from "@/components/ui/cover";
 import { EmptyState, ErrorState, SkeletonCard } from "@/components/ui/states";
 import { useToast } from "@/components/ui/toast";
+import { useLanguage } from "@/lib/i18n";
 import {
   api,
   type ChallengeSummary,
@@ -41,6 +42,7 @@ function endsIn(iso: string | null): string {
 export default function Challenges() {
   const navigate = useNavigate();
   const toast = useToast();
+  const { t } = useLanguage();
 
   const [challenges, setChallenges] = useState<ChallengeSummary[]>([]);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -90,26 +92,23 @@ export default function Challenges() {
     {
       icon: Flame,
       value: profile ? profile.points.toLocaleString() : "—",
-      label: "Total points",
+      label: t("challenges.totalPoints"),
     },
     {
       icon: Target,
       value: profile ? `#${profile.rank}` : "—",
-      label: `of ${profile?.total_users ?? 0} students`,
+      label: t("challenges.ofStudents", { n: profile?.total_users ?? 0 }),
     },
     {
       icon: Award,
       value: profile ? String(profile.challenges_completed) : "—",
-      label: "Challenges started",
+      label: t("challenges.started"),
     },
   ];
 
   return (
     <>
-      <PageHeader
-        title="Challenges & Rankings"
-        subtitle="Answer correctly, earn points, climb the leaderboard"
-      />
+      <PageHeader title={t("challenges.title")} subtitle={t("challenges.subtitle")} />
 
       {error && <ErrorState message={error} onRetry={() => void load()} />}
 
@@ -127,7 +126,7 @@ export default function Challenges() {
         ))}
       </div>
 
-      <h2 className="mb-4 font-display text-2xl font-bold">Active challenges</h2>
+      <h2 className="mb-4 font-display text-2xl font-bold">{t("challenges.active")}</h2>
 
       {loading ? (
         <div className="mb-12 grid gap-4 sm:grid-cols-2">
@@ -137,8 +136,8 @@ export default function Challenges() {
       ) : challenges.length === 0 ? (
         <EmptyState
           icon={<Trophy className="h-8 w-8" />}
-          title="No challenges are running"
-          body="Check back shortly — new challenges are published every week."
+          title={t("challenges.noneRunning")}
+          body={t("challenges.checkBack")}
         />
       ) : (
         <div className="mb-12 grid gap-4 sm:grid-cols-2">
@@ -192,7 +191,7 @@ export default function Challenges() {
                   <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
                     <span className="flex items-center gap-1.5">
                       <Users className="h-4 w-4" aria-hidden="true" />
-                      {challenge.participants.toLocaleString()} joined
+                      {challenge.participants.toLocaleString()} {t("challenges.joined")}
                     </span>
                     <span className="flex items-center gap-1.5">
                       <Clock className="h-4 w-4" aria-hidden="true" />
@@ -219,11 +218,11 @@ export default function Challenges() {
                     {challenge.completed ? (
                       <>
                         <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
-                        Review answers
+                        {t("challenges.reviewAnswers")}
                       </>
                     ) : (
                       <>
-                        {challenge.joined ? "Continue Challenge" : "Join Challenge"}
+                        {challenge.joined ? t("challenges.continue") : t("challenges.join")}
                         <ChevronRight className="h-4 w-4" aria-hidden="true" />
                       </>
                     )}
@@ -236,10 +235,10 @@ export default function Challenges() {
       )}
 
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="font-display text-2xl font-bold">Top of the leaderboard</h2>
+        <h2 className="font-display text-2xl font-bold">{t("challenges.topLeaderboard")}</h2>
         <Link to="/leaderboard">
           <Button variant="link" size="sm">
-            Full ranking
+            {t("challenges.fullRanking")}
             <ChevronRight className="h-4 w-4" aria-hidden="true" />
           </Button>
         </Link>
@@ -274,7 +273,7 @@ export default function Challenges() {
         ))}
         {board.length === 0 && !loading && (
           <p className="px-5 py-8 text-center text-sm text-muted-foreground">
-            No scores yet. Answer a challenge question to get on the board.
+            {t("challenges.noScores")}
           </p>
         )}
       </Card>

@@ -3,7 +3,21 @@ import { LogOut, Settings } from "lucide-react";
 import { navItems, site, staffNavItems, type NavItem } from "@/config/site";
 import { PremiumButton } from "@/components/ui/premium-button";
 import { useSession } from "@/lib/session";
+import { useLanguage } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
+
+/** Nav labels are authored in English in config/site.ts; this maps each
+ *  route to its translation key so the sidebar renders in the active language. */
+const NAV_KEY: Record<string, string> = {
+  "/dashboard": "nav.dashboard",
+  "/community": "nav.communities",
+  "/challenges": "nav.challenges",
+  "/library": "nav.library",
+  "/profile": "nav.profile",
+  "/learn": "nav.aiTraining",
+  "/imaging/cases": "nav.caseReferences",
+  "/governance": "nav.governance",
+};
 
 function itemClass(isActive: boolean) {
   return cn(
@@ -15,6 +29,7 @@ function itemClass(isActive: boolean) {
 }
 
 function Item({ label, to, icon: Icon }: NavItem) {
+  const { t } = useLanguage();
   return (
     <li>
       <NavLink to={to} className={({ isActive }) => itemClass(isActive)}>
@@ -24,7 +39,7 @@ function Item({ label, to, icon: Icon }: NavItem) {
               <span className="absolute left-0 h-7 w-1 rounded-full bg-primary" aria-hidden="true" />
             )}
             <Icon className="h-5 w-5" aria-hidden="true" />
-            <span className="font-medium">{label}</span>
+            <span className="font-medium">{NAV_KEY[to] ? t(NAV_KEY[to]) : label}</span>
           </>
         )}
       </NavLink>
@@ -34,6 +49,7 @@ function Item({ label, to, icon: Icon }: NavItem) {
 
 export function Sidebar() {
   const { me, logout } = useSession();
+  const { t } = useLanguage();
   const isStaff = me?.role === "instructor" || me?.role === "admin";
 
   return (
@@ -67,13 +83,13 @@ export function Sidebar() {
         )}
       </nav>
 
-      {/* Go Premium, then Settings, then Log out. */}
+      {/* Go Premium, then Settings, then Log out — same shape, Premium stands out by color. */}
       <div className="space-y-1 border-t border-border p-3">
         {!me?.is_premium && <PremiumButton className="w-full" />}
 
         <NavLink to="/settings" className={({ isActive }) => itemClass(isActive)}>
           <Settings className="h-5 w-5" aria-hidden="true" />
-          <span className="font-medium">Settings</span>
+          <span className="font-medium">{t("nav.settings")}</span>
         </NavLink>
 
         <button
@@ -81,7 +97,7 @@ export function Sidebar() {
           className="flex w-full items-center gap-3 rounded-xl px-4 py-2.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         >
           <LogOut className="h-5 w-5" aria-hidden="true" />
-          <span className="font-medium">Log out</span>
+          <span className="font-medium">{t("nav.logout")}</span>
         </button>
       </div>
     </aside>

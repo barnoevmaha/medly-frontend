@@ -9,6 +9,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Icon } from "@/components/ui/icon";
 import { useToast } from "@/components/ui/toast";
 import { ErrorState, LoadingState } from "@/components/ui/states";
+import { useLanguage } from "@/lib/i18n";
 import {
   api,
   type CommunityDetail,
@@ -25,10 +26,17 @@ function timeOf(iso: string): string {
   });
 }
 
-/** A community, opened: description, members, and the conversation. */
+/**
+ * A community, opened: description and the conversation.
+ *
+ * No member roster here — a list of avatars and names does not scale past a
+ * handful of people, and these communities run into the hundreds. Member
+ * count is a number in the header; the room itself is just the chat.
+ */
 export default function CommunityRoom() {
   const { slug = "" } = useParams();
   const toast = useToast();
+  const { t } = useLanguage();
 
   const [community, setCommunity] = useState<CommunityDetail | null>(null);
   const [messages, setMessages] = useState<CommunityMessage[]>([]);
@@ -114,7 +122,7 @@ export default function CommunityRoom() {
         className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
-        Communities
+        {t("room.backToCommunities")}
       </Link>
 
       <Card className="mb-6 p-6 shadow-medium">
@@ -129,37 +137,18 @@ export default function CommunityRoom() {
               <Badge variant="muted">{community.specialty}</Badge>
               <span className="flex items-center gap-1.5">
                 <Users className="h-4 w-4" />
-                {community.members.toLocaleString()} members
+                {community.members.toLocaleString()} {t("communities.members")}
               </span>
               <span className="flex items-center gap-1.5">
                 <MessageSquare className="h-4 w-4" />
-                {messages.length} messages
+                {messages.length} {t("communities.messages")}
               </span>
             </div>
           </div>
           <Button variant={community.joined ? "outline" : "default"} onClick={() => void toggleMembership()}>
-            {community.joined ? "Leave community" : "Join community"}
+            {community.joined ? t("room.leaveCommunity") : t("room.joinCommunity")}
           </Button>
         </div>
-
-        {community.member_names.length > 0 && (
-          <div className="mt-5 border-t border-border pt-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Members
-            </p>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {community.member_names.map((name) => (
-                <span
-                  key={name}
-                  className="flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-sm"
-                >
-                  <Avatar name={name} className="h-5 w-5 text-[10px]" />
-                  {name}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
       </Card>
 
       <Card className="flex h-[min(60vh,32rem)] flex-col p-0">
@@ -167,9 +156,9 @@ export default function CommunityRoom() {
           {messages.length === 0 && (
             <div className="flex h-full flex-col items-center justify-center text-center">
               <MessageSquare className="h-8 w-8 text-muted-foreground" />
-              <h3 className="mt-3 font-display font-bold">No messages yet</h3>
+              <h3 className="mt-3 font-display font-bold">{t("room.noMessages")}</h3>
               <p className="mt-1 max-w-xs text-sm text-muted-foreground">
-                Start the conversation — ask a question or share a case.
+                {t("room.startConversation")}
               </p>
             </div>
           )}
@@ -213,19 +202,19 @@ export default function CommunityRoom() {
           <Input
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
-            placeholder={`Message ${community.name}…`}
+            placeholder={t("room.messagePlaceholder", { name: community.name })}
             aria-label="Message"
           />
           <Button type="submit" disabled={sending || !draft.trim()}>
             {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-            <span className="hidden sm:inline">Send</span>
+            <span className="hidden sm:inline">{t("room.send")}</span>
           </Button>
         </form>
       </Card>
 
       {!community.joined && (
         <p className="mt-3 text-center text-xs text-muted-foreground">
-          Sending a message joins this community.
+          {t("room.sendingJoins")}
         </p>
       )}
     </>

@@ -1,8 +1,8 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import {
-  Bell, Eye, KeyRound, Loader2, LogOut, Monitor, Moon, Palette,
-  Sun, Trash2, User as UserIcon,
+  Check, Eye, Globe, KeyRound, Loader2, LogOut, Monitor, Moon,
+  Palette, Sun, Trash2, User as UserIcon,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +12,7 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { useToast } from "@/components/ui/toast";
 import { LoadingState } from "@/components/ui/states";
 import { useSession } from "@/lib/session";
+import { LANGUAGES, useLanguage, type Lang } from "@/lib/i18n";
 import {
   readPreferences,
   writePreferences,
@@ -20,33 +21,6 @@ import {
 } from "@/lib/preferences";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
-
-function Section({
-  icon,
-  title,
-  description,
-  children,
-}: {
-  icon: ReactNode;
-  title: string;
-  description: string;
-  children: ReactNode;
-}) {
-  return (
-    <Card className="p-6">
-      <div className="flex items-start gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-          {icon}
-        </div>
-        <div className="min-w-0">
-          <h2 className="font-display text-lg font-bold">{title}</h2>
-          <p className="mt-0.5 text-sm text-muted-foreground">{description}</p>
-        </div>
-      </div>
-      <div className="mt-5">{children}</div>
-    </Card>
-  );
-}
 
 function Toggle({
   label,
@@ -90,25 +64,32 @@ function Toggle({
   );
 }
 
-const THEMES: Array<{ value: Theme; label: string; icon: typeof Sun }> = [
-  { value: "light", label: "Light", icon: Sun },
-  { value: "dark", label: "Dark", icon: Moon },
-  { value: "system", label: "System", icon: Monitor },
-];
+type SectionKey = "account" | "security" | "privacy" | "appearance" | "language" | "session";
 
 /**
  * Settings.
  *
- * Split by where the setting actually lives: account, privacy and security go
- * to the API; theme, motion and confirmation toasts are device preferences kept
- * in localStorage. Nothing here is decorative — every control changes real
- * behaviour, which is why there is no notification section full of email
- * switches for emails this app does not send.
+ * Left column lists the categories, right column is the detail panel for
+ * whichever one is selected — same structural pattern as a typical settings
+ * app, kept in Medly's teal/white theme rather than a dark sidebar. There is
+ * no Notifications section: Medly does not send email or push notifications,
+ * so a page of toggles for messages that never arrive would not be honest.
  */
 export default function Settings() {
   const toast = useToast();
   const { me, refresh, logout } = useSession();
+  const { t, lang, setLang } = useLanguage();
 
+  const SECTIONS: Array<{ key: SectionKey; label: string; icon: typeof UserIcon }> = [
+    { key: "account", label: t("settings.account"), icon: UserIcon },
+    { key: "security", label: t("settings.security"), icon: KeyRound },
+    { key: "privacy", label: t("settings.privacy"), icon: Eye },
+    { key: "appearance", label: t("settings.appearance"), icon: Palette },
+    { key: "language", label: t("settings.language"), icon: Globe },
+    { key: "session", label: t("settings.session"), icon: LogOut },
+  ];
+
+  const [active, setActive] = useState<SectionKey>("account");
   const [preferences, setPreferences] = useState<Preferences>(readPreferences);
   const [account, setAccount] = useState({ full_name: "", institution: "", year_of_study: "" });
   const [passwords, setPasswords] = useState({ current: "", next: "", confirm: "" });
@@ -193,249 +174,272 @@ export default function Settings() {
     }
   }
 
+  function changeLanguage(next: Lang) {
+    setLang(next);
+    toast("Language updated");
+  }
+
   if (!me) return <LoadingState label="Loading settings…" />;
+
+  const THEMES: Array<{ value: Theme; label: string; icon: typeof Sun }> = [
+    { value: "light", label: t("settings.light"), icon: Sun },
+    { value: "dark", label: t("settings.dark"), icon: Moon },
+    { value: "system", label: t("settings.system"), icon: Monitor },
+  ];
+
+  const activeSection = SECTIONS.find((s) => s.key === active)!;
+
+  let panelTitle = activeSection.label;
+  let panelDescription = "";
+  let panelBody: ReactNode = null;
+
+  if (active === "account") {
+    panelDescription = t("settings.accountDesc");
+    panelBody = (
+      <form onSubmit={saveAccount} className="space-y-3">
+        <label className="block">
+          <span className="text-sm font-medium">{t("settings.fullName")}</span>
+          <Input
+            className="mt-1.5"
+            value={account.full_name}
+            onChange={(event) => setAccount({ ...account, full_name: event.target.value })}
+            required
+            minLength={2}
+          />
+        </label>
+        <label className="block">
+          <span className="text-sm font-medium">{t("settings.institution")}</span>
+          <Input
+            className="mt-1.5"
+            value={account.institution}
+            onChange={(event) => setAccount({ ...account, institution: event.target.value })}
+            placeholder="e.g. Columbia University"
+          />
+        </label>
+        <label className="block">
+          <span className="text-sm font-medium">{t("settings.yearOfStudy")}</span>
+          <Input
+            className="mt-1.5"
+            type="number"
+            min={1}
+            max={10}
+            value={account.year_of_study}
+            onChange={(event) => setAccount({ ...account, year_of_study: event.target.value })}
+            placeholder="e.g. 3"
+          />
+        </label>
+
+        <div className="rounded-xl border border-border bg-muted/40 p-3 text-sm">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-muted-foreground">{t("settings.email")}</span>
+            <span className="font-medium">{me.email}</span>
+          </div>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <span className="text-muted-foreground">{t("settings.role")}</span>
+            <Badge variant="info">{me.role}</Badge>
+            {me.is_premium && <Badge variant="accent">Premium</Badge>}
+          </div>
+          <p className="mt-2 text-xs text-muted-foreground">{t("settings.uneditableHint")}</p>
+        </div>
+
+        <Button type="submit" disabled={savingAccount}>
+          {savingAccount && <Loader2 className="h-4 w-4 animate-spin" />}
+          {t("settings.saveChanges")}
+        </Button>
+      </form>
+    );
+  } else if (active === "security") {
+    panelDescription = t("settings.securityDesc");
+    panelBody = (
+      <form onSubmit={savePassword} className="space-y-3">
+        <label className="block">
+          <span className="text-sm font-medium">{t("settings.currentPassword")}</span>
+          <Input
+            className="mt-1.5"
+            type="password"
+            autoComplete="current-password"
+            value={passwords.current}
+            onChange={(event) => setPasswords({ ...passwords, current: event.target.value })}
+            required
+          />
+        </label>
+        <label className="block">
+          <span className="text-sm font-medium">{t("settings.newPassword")}</span>
+          <Input
+            className="mt-1.5"
+            type="password"
+            autoComplete="new-password"
+            minLength={8}
+            value={passwords.next}
+            onChange={(event) => setPasswords({ ...passwords, next: event.target.value })}
+            required
+          />
+        </label>
+        <label className="block">
+          <span className="text-sm font-medium">{t("settings.confirmPassword")}</span>
+          <Input
+            className="mt-1.5"
+            type="password"
+            autoComplete="new-password"
+            minLength={8}
+            value={passwords.confirm}
+            onChange={(event) => setPasswords({ ...passwords, confirm: event.target.value })}
+            required
+          />
+        </label>
+        <p className="text-xs text-muted-foreground">{t("settings.passwordHint")}</p>
+        <Button type="submit" disabled={savingPassword}>
+          {savingPassword && <Loader2 className="h-4 w-4 animate-spin" />}
+          {t("settings.changePassword")}
+        </Button>
+      </form>
+    );
+  } else if (active === "privacy") {
+    panelDescription = t("settings.privacyDesc");
+    panelBody = (
+      <div className="divide-y divide-border">
+        <Toggle
+          label={t("settings.showOnLeaderboard")}
+          hint={t("settings.showOnLeaderboardHint")}
+          checked={me.show_on_leaderboard}
+          disabled={busyPrivacy}
+          onChange={(value) => void setLeaderboardVisibility(value)}
+        />
+        <div className="py-3">
+          <div className="text-sm font-medium">{t("settings.assistantHistory")}</div>
+          <p className="mt-0.5 text-sm text-muted-foreground">{t("settings.assistantHistoryHint")}</p>
+          <Button
+            className="mt-3"
+            size="sm"
+            variant="outline"
+            onClick={() => void clearAssistantHistory()}
+            disabled={clearing}
+          >
+            {clearing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+            {t("settings.deleteHistory")}
+          </Button>
+        </div>
+        <div className="py-3">
+          <div className="text-sm font-medium">{t("settings.patientData")}</div>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            {t("settings.patientDataHint")}{" "}
+            <Link to="/governance" className="text-primary hover:underline">
+              {t("settings.seeStandard")}
+            </Link>
+            .
+          </p>
+        </div>
+      </div>
+    );
+  } else if (active === "appearance") {
+    panelDescription = t("settings.appearanceDesc");
+    panelBody = (
+      <>
+        <div className="text-sm font-medium">{t("settings.theme")}</div>
+        <div className="mt-2 grid grid-cols-3 gap-2">
+          {THEMES.map(({ value, label, icon: Icon }) => (
+            <button
+              key={value}
+              onClick={() => updatePreference({ theme: value })}
+              aria-pressed={preferences.theme === value}
+              className={cn(
+                "flex flex-col items-center gap-2 rounded-xl border p-4 text-sm font-medium transition-colors",
+                preferences.theme === value
+                  ? "border-primary/50 bg-primary/10 text-foreground"
+                  : "border-border hover:bg-muted"
+              )}
+            >
+              <Icon className="h-5 w-5" />
+              {label}
+            </button>
+          ))}
+        </div>
+
+        <div className="mt-4 divide-y divide-border border-t border-border">
+          <Toggle
+            label={t("settings.reduceMotion")}
+            hint={t("settings.reduceMotionHint")}
+            checked={preferences.reduceMotion}
+            onChange={(value) => updatePreference({ reduceMotion: value })}
+          />
+        </div>
+      </>
+    );
+  } else if (active === "language") {
+    panelDescription = t("settings.languageDesc");
+    panelBody = (
+      <div className="grid gap-3 sm:grid-cols-3">
+        {LANGUAGES.map((option) => (
+          <button
+            key={option.code}
+            type="button"
+            onClick={() => changeLanguage(option.code)}
+            aria-pressed={lang === option.code}
+            className={cn(
+              "flex items-center justify-between gap-2 rounded-xl border p-4 text-left transition-colors",
+              lang === option.code
+                ? "border-primary/50 bg-primary/10"
+                : "border-border hover:bg-muted"
+            )}
+          >
+            <div>
+              <div className="font-semibold">{option.label}</div>
+              <div className="text-xs text-muted-foreground">{option.english}</div>
+            </div>
+            {lang === option.code && <Check className="h-4 w-4 shrink-0 text-primary" />}
+          </button>
+        ))}
+      </div>
+    );
+  } else if (active === "session") {
+    panelDescription = t("settings.sessionDesc");
+    panelBody = (
+      <>
+        <p className="text-sm text-muted-foreground">{t("settings.signOutHint")}</p>
+        <Button className="mt-4" variant="outline" onClick={logout}>
+          <LogOut className="h-4 w-4" />
+          {t("settings.logOut")}
+        </Button>
+      </>
+    );
+  }
 
   return (
     <>
-      <PageHeader
-        title="Settings"
-        subtitle="Your account, privacy and how Medly looks on this device"
-      />
+      <PageHeader title={t("settings.title")} subtitle={t("settings.subtitle")} />
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        {/* ---------------- account ---------------- */}
-        <Section
-          icon={<UserIcon className="h-5 w-5" />}
-          title="Account"
-          description="How you appear across Medly"
+      <div className="grid gap-6 lg:grid-cols-[240px_1fr]">
+        {/* ---------------- category list ---------------- */}
+        <nav
+          className="flex gap-2 overflow-x-auto pb-1 lg:flex-col lg:overflow-visible lg:pb-0"
+          aria-label="Settings sections"
         >
-          <form onSubmit={saveAccount} className="space-y-3">
-            <label className="block">
-              <span className="text-sm font-medium">Full name</span>
-              <Input
-                className="mt-1.5"
-                value={account.full_name}
-                onChange={(event) => setAccount({ ...account, full_name: event.target.value })}
-                required
-                minLength={2}
-              />
-            </label>
-            <label className="block">
-              <span className="text-sm font-medium">Institution</span>
-              <Input
-                className="mt-1.5"
-                value={account.institution}
-                onChange={(event) => setAccount({ ...account, institution: event.target.value })}
-                placeholder="e.g. Columbia University"
-              />
-            </label>
-            <label className="block">
-              <span className="text-sm font-medium">Year of study</span>
-              <Input
-                className="mt-1.5"
-                type="number"
-                min={1}
-                max={10}
-                value={account.year_of_study}
-                onChange={(event) => setAccount({ ...account, year_of_study: event.target.value })}
-                placeholder="e.g. 3"
-              />
-            </label>
+          {SECTIONS.map(({ key, label, icon: Icon }) => (
+            <button
+              key={key}
+              onClick={() => setActive(key)}
+              aria-current={active === key}
+              className={cn(
+                "flex shrink-0 items-center gap-3 whitespace-nowrap rounded-xl px-4 py-2.5 text-left text-sm font-medium transition-colors lg:shrink lg:w-full",
+                active === key
+                  ? "bg-primary/10 text-primary"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              )}
+            >
+              <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+              {label}
+            </button>
+          ))}
+        </nav>
 
-            <div className="rounded-xl border border-border bg-muted/40 p-3 text-sm">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-muted-foreground">Email</span>
-                <span className="font-medium">{me.email}</span>
-              </div>
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                <span className="text-muted-foreground">Role</span>
-                <Badge variant="info">{me.role}</Badge>
-                {me.is_premium && <Badge variant="accent">Premium</Badge>}
-              </div>
-              <p className="mt-2 text-xs text-muted-foreground">
-                Email and role are set by your institution and cannot be changed here.
-              </p>
-            </div>
-
-            <Button type="submit" disabled={savingAccount}>
-              {savingAccount && <Loader2 className="h-4 w-4 animate-spin" />}
-              Save changes
-            </Button>
-          </form>
-        </Section>
-
-        {/* ---------------- security ---------------- */}
-        <Section
-          icon={<KeyRound className="h-5 w-5" />}
-          title="Security"
-          description="Change your password"
-        >
-          <form onSubmit={savePassword} className="space-y-3">
-            <label className="block">
-              <span className="text-sm font-medium">Current password</span>
-              <Input
-                className="mt-1.5"
-                type="password"
-                autoComplete="current-password"
-                value={passwords.current}
-                onChange={(event) => setPasswords({ ...passwords, current: event.target.value })}
-                required
-              />
-            </label>
-            <label className="block">
-              <span className="text-sm font-medium">New password</span>
-              <Input
-                className="mt-1.5"
-                type="password"
-                autoComplete="new-password"
-                minLength={8}
-                value={passwords.next}
-                onChange={(event) => setPasswords({ ...passwords, next: event.target.value })}
-                required
-              />
-            </label>
-            <label className="block">
-              <span className="text-sm font-medium">Confirm new password</span>
-              <Input
-                className="mt-1.5"
-                type="password"
-                autoComplete="new-password"
-                minLength={8}
-                value={passwords.confirm}
-                onChange={(event) => setPasswords({ ...passwords, confirm: event.target.value })}
-                required
-              />
-            </label>
-            <p className="text-xs text-muted-foreground">
-              At least 8 characters. Your current password is required — holding a valid session
-              should not be enough to lock the owner out of their own account.
-            </p>
-            <Button type="submit" disabled={savingPassword}>
-              {savingPassword && <Loader2 className="h-4 w-4 animate-spin" />}
-              Change password
-            </Button>
-          </form>
-        </Section>
-
-        {/* ---------------- privacy ---------------- */}
-        <Section
-          icon={<Eye className="h-5 w-5" />}
-          title="Privacy"
-          description="What other students can see, and what Medly keeps"
-        >
-          <div className="divide-y divide-border">
-            <Toggle
-              label="Show me on the leaderboard"
-              hint="Turn this off and your name disappears from the public ranking. Your own rank is still calculated and shown to you."
-              checked={me.show_on_leaderboard}
-              disabled={busyPrivacy}
-              onChange={(value) => void setLeaderboardVisibility(value)}
-            />
-            <div className="py-3">
-              <div className="text-sm font-medium">Assistant conversation history</div>
-              <p className="mt-0.5 text-sm text-muted-foreground">
-                Deletes every message you have exchanged with the study assistant. The governance
-                audit log is deliberately not touched — that is the institution's record that an
-                AI interaction happened, and a platform that let people erase it would not be
-                auditable.
-              </p>
-              <Button
-                className="mt-3"
-                size="sm"
-                variant="outline"
-                onClick={() => void clearAssistantHistory()}
-                disabled={clearing}
-              >
-                {clearing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                Delete my assistant history
-              </Button>
-            </div>
-            <div className="py-3">
-              <div className="text-sm font-medium">Patient data</div>
-              <p className="mt-0.5 text-sm text-muted-foreground">
-                Medly never stores patient-identifying data. Case images are anonymised and
-                verified by a teacher before any student can load them.{" "}
-                <Link to="/governance" className="text-primary hover:underline">
-                  See the safety standard
-                </Link>
-                .
-              </p>
-            </div>
-          </div>
-        </Section>
-
-        {/* ---------------- appearance ---------------- */}
-        <Section
-          icon={<Palette className="h-5 w-5" />}
-          title="Appearance"
-          description="Applies to this browser only"
-        >
-          <div className="text-sm font-medium">Theme</div>
-          <div className="mt-2 grid grid-cols-3 gap-2">
-            {THEMES.map(({ value, label, icon: Icon }) => (
-              <button
-                key={value}
-                onClick={() => updatePreference({ theme: value })}
-                aria-pressed={preferences.theme === value}
-                className={cn(
-                  "flex flex-col items-center gap-2 rounded-xl border p-4 text-sm font-medium transition-colors",
-                  preferences.theme === value
-                    ? "border-primary/50 bg-primary/10 text-foreground"
-                    : "border-border hover:bg-muted"
-                )}
-              >
-                <Icon className="h-5 w-5" />
-                {label}
-              </button>
-            ))}
-          </div>
-
-          <div className="mt-4 divide-y divide-border border-t border-border">
-            <Toggle
-              label="Reduce motion"
-              hint="Turns off card lifts and fade-in animations across the app."
-              checked={preferences.reduceMotion}
-              onChange={(value) => updatePreference({ reduceMotion: value })}
-            />
-          </div>
-        </Section>
-
-        {/* ---------------- notifications ---------------- */}
-        <Section
-          icon={<Bell className="h-5 w-5" />}
-          title="Notifications"
-          description="In-app feedback"
-        >
-          <div className="divide-y divide-border">
-            <Toggle
-              label="Confirmation messages"
-              hint="The small confirmations after saving an article, posting a comment or joining a community. Errors always show regardless."
-              checked={preferences.toasts}
-              onChange={(value) => updatePreference({ toasts: value })}
-            />
-          </div>
-          <p className="mt-3 rounded-xl border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
-            Medly does not send email or push notifications, so there is nothing here to switch
-            off. Rather than show toggles that do nothing, this section only lists what actually
-            exists.
-          </p>
-        </Section>
-
-        {/* ---------------- session ---------------- */}
-        <Section
-          icon={<LogOut className="h-5 w-5" />}
-          title="Session"
-          description="Sign out of this device"
-        >
-          <p className="text-sm text-muted-foreground">
-            Signing out clears the token stored in this browser. Your saved items, points and
-            progress are on the server and will be waiting when you sign back in.
-          </p>
-          <Button className="mt-4" variant="outline" onClick={logout}>
-            <LogOut className="h-4 w-4" />
-            Log out
-          </Button>
-        </Section>
+        {/* ---------------- detail panel ---------------- */}
+        <Card className="p-6">
+          <h2 className="font-display text-lg font-bold">{panelTitle}</h2>
+          {panelDescription && (
+            <p className="mt-0.5 text-sm text-muted-foreground">{panelDescription}</p>
+          )}
+          <div className="mt-5">{panelBody}</div>
+        </Card>
       </div>
     </>
   );

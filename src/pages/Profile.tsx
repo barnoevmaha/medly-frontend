@@ -11,6 +11,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Icon } from "@/components/ui/icon";
 import { PremiumButton } from "@/components/ui/premium-button";
 import { ErrorState, LoadingState } from "@/components/ui/states";
+import { useLanguage } from "@/lib/i18n";
 import {
   api,
   type ActivityRow,
@@ -20,14 +21,7 @@ import {
 } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
-const TABS = [
-  { key: "overview", label: "Overview" },
-  { key: "badges", label: "Badges" },
-  { key: "communities", label: "Communities" },
-  { key: "activity", label: "Activity" },
-] as const;
-
-type TabKey = (typeof TABS)[number]["key"];
+type TabKey = "overview" | "badges" | "communities" | "activity";
 
 function relative(iso: string): string {
   const minutes = Math.max(1, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
@@ -43,6 +37,14 @@ export default function Profile() {
   // section rather than dropping the user on a generic profile page.
   const [params, setParams] = useSearchParams();
   const tab = (params.get("tab") as TabKey) ?? "overview";
+  const { t } = useLanguage();
+
+  const TABS: Array<{ key: TabKey; label: string }> = [
+    { key: "overview", label: t("profile.overview") },
+    { key: "badges", label: t("profile.badges") },
+    { key: "communities", label: t("profile.communities") },
+    { key: "activity", label: t("profile.activity") },
+  ];
 
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [badges, setBadges] = useState<BadgeState[]>([]);
@@ -80,30 +82,30 @@ export default function Profile() {
     () => [
       {
         value: profile ? `#${profile.rank}` : "—",
-        label: "Global Rank",
+        label: t("profile.globalRank"),
         to: "/leaderboard",
         hint: "Open the leaderboard",
       },
       {
         value: profile ? profile.points.toLocaleString() : "—",
-        label: "Total Points",
+        label: t("profile.totalPoints"),
         to: "/leaderboard",
         hint: "Open the leaderboard",
       },
       {
         value: profile ? String(profile.badge_count) : "—",
-        label: "Badges Earned",
+        label: t("profile.badgesEarned"),
         to: "/profile?tab=badges",
         hint: "View badges",
       },
       {
         value: profile ? String(profile.community_count) : "—",
-        label: "Communities",
+        label: t("profile.communities"),
         to: "/profile?tab=communities",
         hint: "View your communities",
       },
     ],
-    [profile]
+    [profile, t]
   );
 
   if (loading) return <LoadingState label="Loading profile…" />;
@@ -184,19 +186,19 @@ export default function Profile() {
           <Card className="p-5">
             <h3 className="flex items-center gap-2 font-display font-bold">
               <GraduationCap className="h-4 w-4 text-primary" />
-              Learning
+              {t("profile.learning")}
             </h3>
             <dl className="mt-4 space-y-2 text-sm">
               <div className="flex justify-between">
-                <dt className="text-muted-foreground">Lessons completed</dt>
+                <dt className="text-muted-foreground">{t("profile.lessonsCompleted")}</dt>
                 <dd className="font-semibold">{profile.lessons_completed}</dd>
               </div>
               <div className="flex justify-between">
-                <dt className="text-muted-foreground">Challenges started</dt>
+                <dt className="text-muted-foreground">{t("profile.challengesStarted")}</dt>
                 <dd className="font-semibold">{profile.challenges_completed}</dd>
               </div>
               <div className="flex justify-between">
-                <dt className="text-muted-foreground">Current streak</dt>
+                <dt className="text-muted-foreground">{t("profile.currentStreak")}</dt>
                 <dd className="font-semibold">
                   {profile.streak_days} day{profile.streak_days === 1 ? "" : "s"}
                 </dd>
@@ -204,7 +206,7 @@ export default function Profile() {
             </dl>
             <Link to="/learn">
               <Button className="mt-4 w-full" variant="outline" size="sm">
-                Continue AI Training
+                {t("profile.continueTraining")}
               </Button>
             </Link>
           </Card>
@@ -212,25 +214,25 @@ export default function Profile() {
           <Card className="p-5">
             <h3 className="flex items-center gap-2 font-display font-bold">
               <BookMarked className="h-4 w-4 text-accent" />
-              Library & discussion
+              {t("profile.libraryDiscussion")}
             </h3>
             <dl className="mt-4 space-y-2 text-sm">
               <div className="flex justify-between">
-                <dt className="text-muted-foreground">Saved items</dt>
+                <dt className="text-muted-foreground">{t("profile.savedItems")}</dt>
                 <dd className="font-semibold">{profile.saved_count}</dd>
               </div>
               <div className="flex justify-between">
-                <dt className="text-muted-foreground">Comments written</dt>
+                <dt className="text-muted-foreground">{t("profile.commentsWritten")}</dt>
                 <dd className="font-semibold">{profile.comments}</dd>
               </div>
               <div className="flex justify-between">
-                <dt className="text-muted-foreground">Communities joined</dt>
+                <dt className="text-muted-foreground">{t("profile.communitiesJoined")}</dt>
                 <dd className="font-semibold">{profile.community_count}</dd>
               </div>
             </dl>
             <Link to="/library?tab=saved">
               <Button className="mt-4 w-full" variant="outline" size="sm">
-                Open Saved
+                {t("profile.openSaved")}
               </Button>
             </Link>
           </Card>
@@ -240,7 +242,7 @@ export default function Profile() {
       {tab === "badges" && (
         <>
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="font-display text-2xl font-bold">Badges</h2>
+            <h2 className="font-display text-2xl font-bold">{t("profile.badges")}</h2>
             <span className="text-sm text-muted-foreground">
               {badges.filter((badge) => badge.earned).length} of {badges.length} earned
             </span>
@@ -287,10 +289,12 @@ export default function Profile() {
       {tab === "communities" && (
         <>
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="font-display text-2xl font-bold">Your communities</h2>
+            <h2 className="font-display text-2xl font-bold">
+              {t("profile.communities")}
+            </h2>
             <Link to="/community">
               <Button variant="link" size="sm">
-                Find more
+                {t("profile.findMore")}
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </Link>
@@ -298,12 +302,10 @@ export default function Profile() {
           {communities.length === 0 ? (
             <Card className="p-8 text-center">
               <Users className="mx-auto h-8 w-8 text-muted-foreground" />
-              <h3 className="mt-3 font-display font-bold">You have not joined any yet</h3>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Communities are where cases get discussed between sessions.
-              </p>
+              <h3 className="mt-3 font-display font-bold">{t("profile.notJoined")}</h3>
+              <p className="mt-1 text-sm text-muted-foreground">{t("profile.notJoinedHint")}</p>
               <Link to="/community">
-                <Button className="mt-4">Browse communities</Button>
+                <Button className="mt-4">{t("profile.browseCommunities")}</Button>
               </Link>
             </Card>
           ) : (
@@ -336,13 +338,13 @@ export default function Profile() {
 
       {tab === "activity" && (
         <>
-          <h2 className="mb-4 font-display text-2xl font-bold">Recent activity</h2>
+          <h2 className="mb-4 font-display text-2xl font-bold">{t("profile.recentActivity")}</h2>
           {activity.length === 0 ? (
             <Card className="p-8 text-center">
               <Award className="mx-auto h-8 w-8 text-muted-foreground" />
-              <h3 className="mt-3 font-display font-bold">Nothing recorded yet</h3>
+              <h3 className="mt-3 font-display font-bold">{t("profile.nothingRecorded")}</h3>
               <p className="mt-1 text-sm text-muted-foreground">
-                Answer a challenge question or finish a lesson and it will show up here.
+                {t("profile.nothingRecordedHint")}
               </p>
             </Card>
           ) : (

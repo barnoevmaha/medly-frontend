@@ -5,11 +5,24 @@ import { MOBILE_PRIMARY, navItems, staffNavItems } from "@/config/site";
 import { Avatar } from "@/components/ui/avatar";
 import { PremiumButton } from "@/components/ui/premium-button";
 import { useSession } from "@/lib/session";
+import { useLanguage } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 const primary = MOBILE_PRIMARY.map((to) => navItems.find((item) => item.to === to)!).filter(
   Boolean
 );
+
+/** Maps each route to its translation key — see Sidebar.tsx for the same table. */
+const NAV_KEY: Record<string, string> = {
+  "/dashboard": "nav.dashboard",
+  "/community": "nav.communities",
+  "/challenges": "nav.challenges",
+  "/library": "nav.library",
+  "/profile": "nav.profile",
+  "/learn": "nav.aiTraining",
+  "/imaging/cases": "nav.caseReferences",
+  "/governance": "nav.governance",
+};
 
 function sheetItemClass(isActive: boolean) {
   return cn(
@@ -28,6 +41,7 @@ export function MobileNav() {
   const [open, setOpen] = useState(false);
   const location = useLocation();
   const { me, logout } = useSession();
+  const { t } = useLanguage();
   const isStaff = me?.role === "instructor" || me?.role === "admin";
 
   // Close on navigation, or the sheet stays over the page you just opened.
@@ -52,7 +66,7 @@ export function MobileNav() {
                 <div className="min-w-0">
                   <p className="truncate font-semibold">{me.full_name}</p>
                   <p className="truncate text-xs text-muted-foreground">
-                    {me.is_premium ? "Premium" : "Free"} · {me.points.toLocaleString()} pts
+                    {me.is_premium ? t("nav.premium") : "Free"} · {me.points.toLocaleString()} pts
                   </p>
                 </div>
               </div>
@@ -60,7 +74,7 @@ export function MobileNav() {
             <button
               onClick={() => setOpen(false)}
               className="rounded-lg p-2 text-muted-foreground"
-              aria-label="Close menu"
+              aria-label={t("common.close")}
             >
               <X className="h-5 w-5" />
             </button>
@@ -70,7 +84,7 @@ export function MobileNav() {
             <li>
               <NavLink to="/profile" className={({ isActive }) => sheetItemClass(isActive)}>
                 <User className="h-5 w-5" aria-hidden="true" />
-                Profile
+                {t("nav.profile")}
               </NavLink>
             </li>
             {isStaff &&
@@ -78,7 +92,7 @@ export function MobileNav() {
                 <li key={to}>
                   <NavLink to={to} className={({ isActive }) => sheetItemClass(isActive)}>
                     <Icon className="h-5 w-5" aria-hidden="true" />
-                    {label}
+                    {NAV_KEY[to] ? t(NAV_KEY[to]) : label}
                   </NavLink>
                 </li>
               ))}
@@ -90,7 +104,7 @@ export function MobileNav() {
             <li>
               <NavLink to="/settings" className={({ isActive }) => sheetItemClass(isActive)}>
                 <Settings className="h-5 w-5" aria-hidden="true" />
-                Settings
+                {t("nav.settings")}
               </NavLink>
             </li>
             <li>
@@ -99,7 +113,7 @@ export function MobileNav() {
                 className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted"
               >
                 <LogOut className="h-5 w-5" aria-hidden="true" />
-                Log out
+                {t("nav.logout")}
               </button>
             </li>
           </ul>
@@ -123,7 +137,7 @@ export function MobileNav() {
                 }
               >
                 <Icon className="h-5 w-5" aria-hidden="true" />
-                {label}
+                {NAV_KEY[to] ? t(NAV_KEY[to]) : label}
               </NavLink>
             </li>
           ))}
