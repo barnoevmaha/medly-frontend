@@ -6,6 +6,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Markdown } from "@/components/ui/markdown";
 import { StreamingAnswer } from "@/components/assistant/StreamingAnswer";
+import { AssistantEyes } from "@/components/assistant/AssistantEyes";
 import { useAiContext } from "@/lib/ai-context";
 import { readPreferences } from "@/lib/preferences";
 import { api, ApiError, traceStream, type QuickAction, type RiskLevel } from "@/lib/api";
@@ -403,7 +404,12 @@ export function AssistantWidget() {
         {open ? (
           <X className="h-6 w-6" />
         ) : (
-          <Bot className="h-6 w-6 transition-transform duration-200 group-hover:-rotate-6" />
+          // The wrapper only establishes a positioning context for the pupils;
+          // it is the same 24px box the icon already occupied.
+          <span className="relative block h-6 w-6 transition-transform duration-200 group-hover:-rotate-6">
+            <Bot className="h-6 w-6" />
+            <AssistantEyes />
+          </span>
         )}
         {!open && context && (
           <span
