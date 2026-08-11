@@ -60,9 +60,13 @@ const FOLLOW_UPS: Array<{ action: QuickAction; label: string }> = [
    divisors keep a bigger backlog from falling behind: whatever is queued
    clears in roughly this many frames, so long answers speed up instead of
    taking half a minute. */
-const DRAIN_FRAMES = 26;          // while still receiving
-const FINISH_FRAMES = 30;         // after the stream ends — gentler, not a dump
-const MAX_CHARS_PER_FRAME = 14;   // ceiling: about two words, never a paragraph
+const DRAIN_FRAMES = 36;          // while still receiving
+const FINISH_FRAMES = 44;         // after the stream ends — gentler, not a dump
+const MAX_CHARS_PER_FRAME = 9;    // ceiling: about a word, never a paragraph
+/* Measured against real traffic (1800 chars arriving as 9 chunks over 740ms):
+   ~4.7s to reveal, averaging 6.4 characters a frame. The cap is what governs
+   a long answer — raise it to 10 if the tail of a 6000-character reply feels
+   slow, lower it for a more deliberate crawl. */
 /** Distance from the bottom that still counts as "following along". */
 const STICK_PX = 80;
 
