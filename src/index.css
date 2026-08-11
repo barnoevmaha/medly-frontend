@@ -171,3 +171,22 @@
   .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
   .scrollbar-hide::-webkit-scrollbar { display: none; }
 }
+
+/* Medly AI streaming cursor. A caret that blinks while Gemini is still
+   producing text and disappears when it stops — the only motion the
+   streaming answer adds. Honours the Reduce motion preference. */
+@keyframes medly-caret {
+  0%, 45% { opacity: 1; }
+  55%, 100% { opacity: 0; }
+}
+.stream-caret {
+  display: inline-block;
+  width: 0.45em;
+  height: 1em;
+  margin-left: 1px;
+  vertical-align: text-bottom;
+  background: hsl(var(--primary));
+  border-radius: 1px;
+  animation: medly-caret 1s steps(1, end) infinite;
+}
+.reduce-motion .stream-caret { animation: none; opacity: 1; }

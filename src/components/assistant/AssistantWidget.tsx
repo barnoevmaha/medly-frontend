@@ -1,20 +1,22 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  Bot, Check, Copy, FileText, Info, Loader2, RotateCcw, Send, ShieldAlert,
-  Sparkles, X,
+  Bot, Check, Copy, FileText, Info, RotateCcw, Send, ShieldAlert,
+  Sparkles, Square, X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Markdown } from "@/components/ui/markdown";
+import { StreamingAnswer } from "@/components/assistant/StreamingAnswer";
 import { useAiContext } from "@/lib/ai-context";
-import { api, ApiError, type ChatResponse, type QuickAction, type RiskLevel } from "@/lib/api";
+import { api, ApiError, type QuickAction, type RiskLevel } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 /* Medly AI — the fixed-corner assistant.
    One entry point, everywhere in the app. It knows what page you are on: the
    article, challenge or library item you have open registers itself through
    `useProvideAiContext`, and the server resolves the real content from its own
-   rows. Every reply arrives already carrying its disclaimer from the server —
-   the client cannot strip it, and a refusal renders differently on purpose. */
+   rows. Answers stream in over SSE as Gemini writes them. Every reply arrives
+   already carrying its disclaimer from the server — the client cannot strip
+   it, and a refusal renders differently on purpose. */
 
 interface Message {
   id: number;
@@ -22,6 +24,12 @@ interface Message {
   content: string;
   blocked?: boolean;
   riskLevel?: RiskLevel;
+  /** True while fragments are still arriving into this message. */
+  streaming?: boolean;
+  /** Stopped by the user, or cut short by an error, with text already shown. */
+  interrupted?: boolean;
+  /** Set when generation failed. Shown under whatever text survived. */
+  error?: string;
   /** What produced this answer, so Retry can resend exactly that. */
   source?: { text?: string; action?: QuickAction };
 }
@@ -45,6 +53,11 @@ const FOLLOW_UPS: Array<{ action: QuickAction; label: string }> = [
   { action: "case", label: "Case" },
   { action: "quiz", label: "Quiz me" },
 ];
+
+/** How long tiny fragments pile up before one React update. */
+const FLUSH_MS = 60;
+/** Distance from the bottom that still counts as "following along". */
+const STICK_PX = 80;
 
 function riskChip(risk: RiskLevel) {
   const map: Record<RiskLevel, string> = {
@@ -84,10 +97,21 @@ export function AssistantWidget() {
   const [messages, setMessages] = useState<Message[]>([GREETING]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
+  /** True from send until the first fragment lands — the three dots. */
+  const [waiting, setWaiting] = useState(false);
   const [sessionId, setSessionId] = useState<string | undefined>();
   const [suggestions, setSuggestions] = useState<string[]>([]);
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  // Fragments land here first and are flushed to state on a timer, so a burst
+  // of one-token frames is one render instead of forty.
+  const pendingRef = useRef("");
+  const flushTimer = useRef<number | null>(null);
+  // False as soon as the user scrolls up mid-generation; true again when they
+  // come back to the bottom.
+  const stickToBottom = useRef(true);
 
   const { context } = useAiContext();
 
@@ -96,11 +120,25 @@ export function AssistantWidget() {
     api.suggestions().then(setSuggestions).catch(() => setSuggestions([]));
   }, [open, suggestions.length]);
 
-  useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
-  }, [messages, busy]);
+  // Auto-scroll, but only while the user is actually at the bottom. Scrolling
+  // up during generation is a deliberate act and must not be undone.
+  const scrollToBottom = useCallback(() => {
+    const node = scrollRef.current;
+    if (!node || !stickToBottom.current) return;
+    node.scrollTop = node.scrollHeight;
+  }, []);
 
-  // Focus the composer when the panel opens; Escape closes it.
+  function onScroll() {
+    const node = scrollRef.current;
+    if (!node) return;
+    stickToBottom.current =
+      node.scrollHeight - node.scrollTop - node.clientHeight <= STICK_PX;
+  }
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, waiting, scrollToBottom]);
+
   useEffect(() => {
     if (!open) return;
     const timer = window.setTimeout(() => inputRef.current?.focus(), 120);
@@ -114,60 +152,135 @@ export function AssistantWidget() {
     };
   }, [open]);
 
+  // Nothing may outlive the component: abort the request, drop the timer.
+  useEffect(
+    () => () => {
+      abortRef.current?.abort();
+      if (flushTimer.current) window.clearTimeout(flushTimer.current);
+    },
+    []
+  );
+
   const send = useCallback(
     async (payload: { text?: string; action?: QuickAction }) => {
       const question = payload.text?.trim();
       if (busy || (!question && !payload.action)) return;
 
-      if (question) {
-        setMessages((prev) => [...prev, { id: nextId++, role: "user", content: question }]);
-        setInput("");
-      }
+      const answerId = nextId++;
+      const controller = new AbortController();
+      abortRef.current = controller;
+      pendingRef.current = "";
+      stickToBottom.current = true;
+
+      setMessages((prev) => [
+        ...prev,
+        ...(question
+          ? [{ id: nextId++, role: "user" as const, content: question }]
+          : []),
+        { id: answerId, role: "assistant", content: "", streaming: true, source: payload },
+      ]);
+      if (question) setInput("");
       setBusy(true);
+      setWaiting(true);
+
+      const applyToAnswer = (patch: Partial<Message>) =>
+        setMessages((prev) =>
+          prev.map((m) => (m.id === answerId ? { ...m, ...patch } : m))
+        );
+
+      const flush = () => {
+        flushTimer.current = null;
+        const buffered = pendingRef.current;
+        if (!buffered) return;
+        pendingRef.current = "";
+        setMessages((prev) =>
+          prev.map((m) => (m.id === answerId ? { ...m, content: m.content + buffered } : m))
+        );
+      };
 
       try {
-        const reply: ChatResponse = await api.chat(question ?? "", {
-          sessionId,
-          action: payload.action,
-          contextKind: context?.kind,
-          contextKey: context?.key,
-          contextNote: context?.note,
-        });
-        setSessionId(reply.session_id);
-        setMessages((prev) => [
-          ...prev,
+        await api.chatStream(
+          question ?? "",
           {
-            id: nextId++,
-            role: "assistant",
-            content: reply.reply,
-            blocked: reply.blocked,
-            riskLevel: reply.risk_level,
-            source: payload,
+            sessionId,
+            action: payload.action,
+            contextKind: context?.kind,
+            contextKey: context?.key,
+            contextNote: context?.note,
           },
-        ]);
+          {
+            onStart: (id) => {
+              if (id) setSessionId(id);
+            },
+            onChunk: (text) => {
+              setWaiting(false);
+              pendingRef.current += text;
+              if (flushTimer.current === null) {
+                flushTimer.current = window.setTimeout(flush, FLUSH_MS);
+              }
+            },
+            onDone: (meta) => {
+              flush();
+              if (meta.session_id) setSessionId(meta.session_id);
+              applyToAnswer({
+                streaming: false,
+                blocked: meta.blocked,
+                riskLevel: meta.risk_level,
+              });
+            },
+            onError: (detail, partial) => {
+              flush();
+              // Partial text is never thrown away.
+              applyToAnswer(
+                partial
+                  ? { streaming: false, interrupted: true, error: detail }
+                  : { streaming: false, content: detail, error: undefined }
+              );
+            },
+          },
+          controller.signal
+        );
       } catch (error) {
-        // The server already turned provider failures into safe copy.
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: nextId++,
-            role: "assistant",
-            content:
-              error instanceof ApiError && error.message
-                ? error.message
-                : "Could not reach Medly AI. Check your connection and try again.",
-            source: payload,
-          },
-        ]);
+        flush();
+        if (controller.signal.aborted) {
+          // Stop was pressed. Keep everything generated so far.
+          applyToAnswer({ streaming: false, interrupted: true });
+        } else {
+          const detail =
+            error instanceof ApiError && error.message
+              ? error.message
+              : "Could not reach Medly AI. Check your connection and try again.";
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === answerId
+                ? m.content
+                  ? { ...m, streaming: false, interrupted: true, error: detail }
+                  : { ...m, streaming: false, content: detail }
+                : m
+            )
+          );
+        }
       } finally {
+        if (flushTimer.current) {
+          window.clearTimeout(flushTimer.current);
+          flushTimer.current = null;
+        }
+        flush();
+        abortRef.current = null;
         setBusy(false);
+        setWaiting(false);
         inputRef.current?.focus();
       }
     },
     [busy, sessionId, context]
   );
 
+  function stop() {
+    abortRef.current?.abort();
+  }
+
   function reset() {
+    abortRef.current?.abort();
     setMessages([GREETING]);
     setSessionId(undefined);
     setInput("");
@@ -186,7 +299,7 @@ export function AssistantWidget() {
 
   return (
     <>
-      {/* launcher — same position, size and gradient as before */}
+      {/* launcher */}
       <button
         onClick={() => setOpen((v) => !v)}
         aria-label={open ? "Close Medly AI" : "Open Medly AI"}
@@ -204,7 +317,6 @@ export function AssistantWidget() {
         ) : (
           <Bot className="h-6 w-6 transition-transform duration-200 group-hover:-rotate-6" />
         )}
-        {/* A quiet mark that the assistant can see the current page. */}
         {!open && context && (
           <span
             className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-card shadow-soft"
@@ -215,7 +327,7 @@ export function AssistantWidget() {
         )}
       </button>
 
-      {/* scrim, small screens only — the panel covers the page there */}
+      {/* scrim, small screens only */}
       <div
         onClick={() => setOpen(false)}
         aria-hidden="true"
@@ -280,76 +392,100 @@ export function AssistantWidget() {
 
         <div
           ref={scrollRef}
+          onScroll={onScroll}
           className="flex-1 space-y-3 overflow-y-auto px-4 py-4"
           role="log"
           aria-live="polite"
         >
-          {messages.map((message) => (
-            <div
-              key={message.id}
-              className={cn("flex", message.role === "user" ? "justify-end" : "justify-start")}
-            >
+          {messages.map((message) => {
+            // An assistant message with no text yet is the waiting state; the
+            // three dots render in its place rather than beside it.
+            const isEmptyStream = message.streaming && !message.content;
+            return (
               <div
-                className={cn(
-                  "max-w-[92%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed",
-                  message.role === "user"
-                    ? "gradient-primary text-primary-foreground"
-                    : message.blocked
-                      ? "border border-destructive/30 bg-destructive/5"
-                      : "bg-muted"
-                )}
+                key={message.id}
+                className={cn("flex", message.role === "user" ? "justify-end" : "justify-start")}
               >
-                {message.blocked && (
-                  <div className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-destructive">
-                    <ShieldAlert className="h-3.5 w-3.5" />
-                    Blocked by safety rules
-                  </div>
-                )}
+                <div
+                  className={cn(
+                    "max-w-[92%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed",
+                    message.role === "user"
+                      ? "gradient-primary text-primary-foreground"
+                      : message.blocked
+                        ? "border border-destructive/30 bg-destructive/5"
+                        : "bg-muted"
+                  )}
+                >
+                  {message.blocked && (
+                    <div className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-destructive">
+                      <ShieldAlert className="h-3.5 w-3.5" />
+                      Blocked by safety rules
+                    </div>
+                  )}
 
-                {message.role === "user" ? (
-                  <p className="whitespace-pre-wrap">{message.content}</p>
-                ) : (
-                  <Markdown>{message.content}</Markdown>
-                )}
+                  {message.role === "user" ? (
+                    <p className="whitespace-pre-wrap">{message.content}</p>
+                  ) : isEmptyStream ? (
+                    <span className="flex gap-1 py-1" aria-label="Medly AI is thinking">
+                      <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-primary [animation-delay:-0.3s]" />
+                      <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-primary [animation-delay:-0.15s]" />
+                      <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-primary" />
+                    </span>
+                  ) : message.id === 0 ? (
+                    <Markdown>{message.content}</Markdown>
+                  ) : (
+                    <StreamingAnswer
+                      text={message.content}
+                      streaming={Boolean(message.streaming)}
+                    />
+                  )}
 
-                {message.role === "assistant" && !message.blocked && message.id !== 0 && (
-                  <div className="mt-1.5 flex flex-wrap items-center gap-1 border-t border-border/60 pt-1.5">
-                    <CopyButton text={message.content} />
-                    <button
-                      type="button"
-                      onClick={() => void send(message.source ?? {})}
-                      disabled={busy || !message.source}
-                      className="inline-flex items-center gap-1 rounded-lg px-1.5 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-background hover:text-foreground disabled:opacity-40"
-                    >
-                      <RotateCcw className="h-3 w-3" />
-                      Retry
-                    </button>
-                    {message.riskLevel && (
-                      <span
-                        className={cn(
-                          "ml-auto rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
-                          riskChip(message.riskLevel)
-                        )}
-                      >
-                        {message.riskLevel} risk
-                      </span>
+                  {/* Interruption and error notes sit under the surviving text. */}
+                  {message.role === "assistant" && !message.streaming && message.error && (
+                    <p className="mt-2 border-t border-border/60 pt-2 text-xs text-destructive">
+                      {message.error}
+                    </p>
+                  )}
+                  {message.role === "assistant" &&
+                    !message.streaming &&
+                    message.interrupted &&
+                    !message.error && (
+                      <p className="mt-2 border-t border-border/60 pt-2 text-xs text-muted-foreground">
+                        Generation stopped.
+                      </p>
                     )}
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
 
-          {busy && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <span className="flex gap-1" aria-label="Medly AI is thinking">
-                <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-primary [animation-delay:-0.3s]" />
-                <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-primary [animation-delay:-0.15s]" />
-                <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-primary" />
-              </span>
-              Thinking…
-            </div>
-          )}
+                  {message.role === "assistant" &&
+                    !message.streaming &&
+                    !message.blocked &&
+                    message.id !== 0 && (
+                      <div className="mt-1.5 flex flex-wrap items-center gap-1 border-t border-border/60 pt-1.5">
+                        {message.content && <CopyButton text={message.content} />}
+                        <button
+                          type="button"
+                          onClick={() => void send(message.source ?? {})}
+                          disabled={busy || !message.source}
+                          className="inline-flex items-center gap-1 rounded-lg px-1.5 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-background hover:text-foreground disabled:opacity-40"
+                        >
+                          <RotateCcw className="h-3 w-3" />
+                          Retry
+                        </button>
+                        {message.riskLevel && (
+                          <span
+                            className={cn(
+                              "ml-auto rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+                              riskChip(message.riskLevel)
+                            )}
+                          >
+                            {message.riskLevel} risk
+                          </span>
+                        )}
+                      </div>
+                    )}
+                </div>
+              </div>
+            );
+          })}
 
           {!started && suggestions.length > 0 && (
             <div className="space-y-1.5 pt-2">
@@ -405,9 +541,22 @@ export function AssistantWidget() {
             placeholder={context ? `Ask about ${context.label}…` : "Ask a medical question…"}
             className="max-h-28 min-h-[2.5rem] flex-1 resize-none rounded-xl border border-input bg-background px-3 py-2 text-sm outline-none transition-shadow focus:ring-2 focus:ring-ring/40"
           />
-          <Button type="submit" size="icon" disabled={busy || !input.trim()}>
-            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-          </Button>
+          {busy ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              onClick={stop}
+              aria-label="Stop generating"
+              title="Stop generating"
+            >
+              <Square className="h-4 w-4" />
+            </Button>
+          ) : (
+            <Button type="submit" size="icon" disabled={!input.trim()} aria-label="Send">
+              <Send className="h-4 w-4" />
+            </Button>
+          )}
         </form>
       </div>
     </>

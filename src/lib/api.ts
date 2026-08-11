@@ -81,6 +81,136 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return response.json() as Promise<T>;
 }
 
+/* ---------- streaming ---------- */
+
+export interface StreamHandlers {
+  /** One fragment exactly as Gemini produced it. Called many times. */
+  onChunk: (text: string) => void;
+  /** Generation finished cleanly. */
+  onDone: (meta: {
+    session_id: string;
+    blocked: boolean;
+    block_reason?: string;
+    risk_level: RiskLevel;
+    disclaimer: string;
+    model?: string;
+  }) => void;
+  /** Something failed. `partial` is true when text had already arrived. */
+  onError: (detail: string, partial: boolean) => void;
+  onStart?: (sessionId: string) => void;
+}
+
+/**
+ * Consume the SSE stream from `/api/assistant/chat/stream`.
+ *
+ * `fetch` rather than `EventSource`, because this is a POST and needs the
+ * Authorization header — `EventSource` supports neither. Pass `signal` from an
+ * AbortController to stop generation; aborting closes the connection, which
+ * the server sees and treats as an interruption.
+ */
+async function streamChat(
+  message: string,
+  options: ChatOptions,
+  handlers: StreamHandlers,
+  signal?: AbortSignal
+): Promise<void> {
+  const headers = new Headers({
+    "Content-Type": "application/json",
+    Accept: "text/event-stream",
+    "X-Medly-Lang": readLang(),
+  });
+  const token = getToken();
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+
+  let received = false;
+
+  const response = await fetch(`${BASE}/api/assistant/chat/stream`, {
+    method: "POST",
+    headers,
+    signal,
+    body: JSON.stringify({
+      message,
+      session_id: options.sessionId,
+      action: options.action,
+      context_kind: options.contextKind,
+      context_key: options.contextKey,
+      context_note: options.contextNote,
+    }),
+  });
+
+  if (response.status === 401) {
+    clearToken();
+    if (!onPublicPage()) window.location.assign("/login");
+    throw new ApiError(401, "Session expired — please sign in again");
+  }
+
+  // Guard rejections (429, 422, 503) arrive as an ordinary JSON error before
+  // the stream opens, so they surface with their real status code.
+  if (!response.ok || !response.body) {
+    let detail = response.statusText;
+    try {
+      detail = (await response.json()).detail ?? detail;
+    } catch {
+      /* no JSON body */
+    }
+    throw new ApiError(response.status, String(detail));
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      // Frames are separated by a blank line. A partial frame stays in the
+      // buffer until the rest of it arrives.
+      let split = buffer.indexOf("\n\n");
+      while (split !== -1) {
+        const frame = buffer.slice(0, split);
+        buffer = buffer.slice(split + 2);
+        split = buffer.indexOf("\n\n");
+
+        let event = "message";
+        const dataLines: string[] = [];
+        for (const line of frame.split("\n")) {
+          if (line.startsWith("event:")) event = line.slice(6).trim();
+          else if (line.startsWith("data:")) dataLines.push(line.slice(5).trim());
+        }
+        if (!dataLines.length) continue;
+
+        let data: Record<string, unknown>;
+        try {
+          data = JSON.parse(dataLines.join("\n"));
+        } catch {
+          continue;
+        }
+
+        if (event === "start") handlers.onStart?.(String(data.session_id ?? ""));
+        else if (event === "chunk") {
+          received = true;
+          handlers.onChunk(String(data.text ?? ""));
+        } else if (event === "done") {
+          handlers.onDone(data as never);
+        } else if (event === "error") {
+          handlers.onError(String(data.detail ?? "Generation failed"), Boolean(data.partial));
+        }
+      }
+    }
+  } finally {
+    // Releasing the lock lets the connection close even if we exited early.
+    try {
+      reader.releaseLock();
+    } catch {
+      /* already released */
+    }
+    void received;
+  }
+}
+
 /* ---------- types ---------- */
 
 export type Role = "student" | "instructor" | "admin";
@@ -653,6 +783,7 @@ export const api = {
       }),
     });
   },
+  chatStream: streamChat,
   suggestions: () => request<string[]>("/api/assistant/suggestions"),
 
   audit: (params: Record<string, string | number | boolean> = {}) => {
