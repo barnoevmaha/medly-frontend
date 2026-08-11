@@ -1,7 +1,6 @@
 import { NavLink } from "react-router-dom";
 import { LogOut, Settings } from "lucide-react";
 import { navItems, site, staffNavItems, type NavItem } from "@/config/site";
-import { Avatar } from "@/components/ui/avatar";
 import { PremiumButton } from "@/components/ui/premium-button";
 import { useSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
@@ -70,18 +69,6 @@ export function Sidebar() {
 
       {/* Go Premium, then Settings, then Log out. */}
       <div className="space-y-1 border-t border-border p-3">
-        {me && (
-          <NavLink to="/profile" className="mb-1 flex items-center gap-3 rounded-xl px-4 py-2.5 hover:bg-muted">
-            <Avatar src={me.avatar_url || undefined} name={me.full_name} className="h-8 w-8 shrink-0 text-xs" />
-            <span className="min-w-0">
-              <span className="block truncate text-sm font-semibold">{me.full_name}</span>
-              <span className="block truncate text-xs text-muted-foreground">
-                {me.is_premium ? "Premium" : "Free"} · {me.points.toLocaleString()} pts
-              </span>
-            </span>
-          </NavLink>
-        )}
-
         {!me?.is_premium && <PremiumButton className="w-full" />}
 
         <NavLink to="/settings" className={({ isActive }) => itemClass(isActive)}>

@@ -100,7 +100,7 @@ export default function Leaderboard() {
                   </span>
                 )}
               </div>
-              <Avatar name={row.name} className="h-10 w-10 shrink-0 text-xs" />
+              <Avatar src={row.avatar_url || undefined} name={row.name} className="h-10 w-10 shrink-0 text-xs" />
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="truncate font-semibold">{row.name}</span>

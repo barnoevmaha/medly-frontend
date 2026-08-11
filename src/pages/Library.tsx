@@ -14,7 +14,6 @@ import { useToast } from "@/components/ui/toast";
 import { EmptyState, ErrorState, SkeletonCard } from "@/components/ui/states";
 import {
   api,
-  type ArticleSummary,
   type LibraryResource,
   type SavedEntry,
   type SavedType,
@@ -25,15 +24,18 @@ import { cn } from "@/lib/utils";
    Saved second because it is the thing they came back for. */
 const TABS = [
   { key: "video", label: "Videos", icon: Video },
-  { key: "saved", label: "Saved", icon: Bookmark },
   { key: "book", label: "Books", icon: BookOpen },
-  { key: "pdf", label: "PDFs", icon: FileText },
-  { key: "article", label: "Articles", icon: Newspaper },
+  { key: "saved", label: "Saved", icon: Bookmark },
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];
 
-const CTA: Record<string, string> = { video: "Watch", book: "Read", pdf: "Read", article: "Read" };
+const CTA: Record<string, string> = { video: "Watch", book: "Read", pdf: "Read" };
+
+/** Videos open the player, everything else opens the reader. */
+function openPath(resource: { kind: string; slug: string }) {
+  return resource.kind === "video" ? `/watch/${resource.slug}` : `/read/${resource.slug}`;
+}
 const TYPE_ICON: Record<SavedType, typeof BookOpen> = {
   article: Newspaper,
   book: BookOpen,
@@ -54,13 +56,13 @@ export default function Library() {
   const tab = (params.get("tab") as TabKey) ?? "video";
 
   const [resources, setResources] = useState<LibraryResource[]>([]);
-  const [articles, setArticles] = useState<ArticleSummary[]>([]);
   const [saved, setSaved] = useState<SavedEntry[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
 
   const [query, setQuery] = useState("");
   const [level, setLevel] = useState<string | null>(null);
   const [topic, setTopic] = useState<string | null>(null);
+  const [year, setYear] = useState<number | null>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -68,14 +70,12 @@ export default function Library() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [list, feed, savedList, savedCounts] = await Promise.all([
+      const [list, savedList, savedCounts] = await Promise.all([
         api.resources(),
-        api.articles(),
         api.saved(),
         api.savedCounts(),
       ]);
       setResources(list);
-      setArticles(feed);
       setSaved(savedList);
       setCounts(savedCounts);
       setError(null);
@@ -98,9 +98,17 @@ export default function Library() {
     () => Array.from(new Set(resources.map((r) => r.level).filter(Boolean))).sort(),
     [resources]
   );
+  /* Years come from the catalogue, newest first — no hardcoded list. */
+  const years = useMemo(
+    () =>
+      Array.from(new Set(resources.map((r) => r.year).filter((v): v is number => !!v))).sort(
+        (a, b) => b - a
+      ),
+    [resources]
+  );
 
   const needle = query.trim().toLowerCase();
-  const activeFilters = [level, topic].filter(Boolean).length + (needle ? 1 : 0);
+  const activeFilters = [level, topic, year].filter(Boolean).length + (needle ? 1 : 0);
 
   /* One search box across the whole library — every tab, every field that
      actually exists on the record. */
@@ -111,23 +119,15 @@ export default function Library() {
           (tab === "saved" || r.kind === tab) &&
           (!level || r.level === level) &&
           (!topic || r.topic === topic) &&
+          (!year || r.year === year) &&
           (!needle ||
             `${r.title} ${r.author} ${r.description} ${r.publisher} ${r.topic}`
               .toLowerCase()
               .includes(needle))
       ),
-    [resources, tab, level, topic, needle]
+    [resources, tab, level, topic, year, needle]
   );
 
-  const visibleArticles = useMemo(
-    () =>
-      articles.filter(
-        (a) =>
-          !needle ||
-          `${a.title} ${a.excerpt} ${a.author} ${a.tag}`.toLowerCase().includes(needle)
-      ),
-    [articles, needle]
-  );
 
   const visibleSaved = useMemo(
     () =>
@@ -140,6 +140,7 @@ export default function Library() {
   function clearFilters() {
     setLevel(null);
     setTopic(null);
+    setYear(null);
     setQuery("");
   }
 
@@ -167,23 +168,6 @@ export default function Library() {
     }
   }
 
-  async function toggleArticle(article: ArticleSummary) {
-    const next = !article.saved;
-    setArticles((current) =>
-      current.map((item) => (item.id === article.id ? { ...item, saved: next } : item))
-    );
-    try {
-      if (next) await api.save("article", article.slug);
-      else await api.unsave("article", article.slug);
-      toast(next ? "Saved" : "Removed from Saved");
-      await refreshSaved();
-    } catch (e) {
-      setArticles((current) =>
-        current.map((item) => (item.id === article.id ? { ...item, saved: !next } : item))
-      );
-      toast(e instanceof Error ? e.message : "Could not save that", "error");
-    }
-  }
 
   async function removeSaved(entry: SavedEntry) {
     setSaved((current) => current.filter((item) => item.id !== entry.id));
@@ -191,9 +175,6 @@ export default function Library() {
       await api.unsave(entry.item_type, entry.item_key);
       toast("Removed from Saved");
       setResources((current) =>
-        current.map((item) => (item.slug === entry.item_key ? { ...item, saved: false } : item))
-      );
-      setArticles((current) =>
         current.map((item) => (item.slug === entry.item_key ? { ...item, saved: false } : item))
       );
       setCounts(await api.savedCounts());
@@ -204,17 +185,13 @@ export default function Library() {
   }
 
   const tabCount = (key: TabKey) =>
-    key === "saved"
-      ? counts.all ?? 0
-      : key === "article"
-      ? articles.length
-      : resources.filter((r) => r.kind === key).length;
+    key === "saved" ? counts.all ?? 0 : resources.filter((r) => r.kind === key).length;
 
   return (
     <>
       <PageHeader
         title="Library"
-        subtitle="Videos, books, PDFs and articles — plus everything you have saved"
+        subtitle="Videos and books — plus everything you have saved"
       />
 
       {/* ---------------- search + filters ---------------- */}
@@ -254,7 +231,7 @@ export default function Library() {
         )}
       </div>
 
-      {filtersOpen && (levels.length > 0 || topics.length > 0) && (
+      {filtersOpen && (levels.length > 0 || topics.length > 0 || years.length > 0) && (
         <Card className="mb-4 p-5 animate-fade-up">
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -294,6 +271,26 @@ export default function Library() {
               ))}
             </div>
           </fieldset>
+
+          <label className="mt-4 block">
+            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Year
+            </span>
+            <select
+              value={year ?? ""}
+              onChange={(event) =>
+                setYear(event.target.value ? Number(event.target.value) : null)
+              }
+              className="mt-2 h-11 w-full rounded-xl border border-input bg-card px-3 text-sm shadow-soft outline-none focus:ring-2 focus:ring-ring/40"
+            >
+              <option value="">All years</option>
+              {years.map((value) => (
+                <option key={value} value={value}>
+                  {value}
+                </option>
+              ))}
+            </select>
+          </label>
 
           <fieldset className="mt-4">
             <legend className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -347,6 +344,14 @@ export default function Library() {
               </button>
             </Badge>
           )}
+          {year && (
+            <Badge variant="muted">
+              {year}
+              <button onClick={() => setYear(null)} aria-label={`Remove ${year} filter`}>
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          )}
         </div>
       )}
 
@@ -389,7 +394,7 @@ export default function Library() {
           <EmptyState
             icon={<Bookmark className="h-8 w-8" />}
             title={needle ? "Nothing saved matches that" : "Nothing saved yet"}
-            body="Bookmark a video, book, PDF or article and it collects here. Saving never removes it from its own tab."
+            body="Bookmark a video or a book and it collects here. Saving never removes it from its own tab."
             action={
               <Button onClick={() => setParams({})}>
                 <Video className="h-4 w-4" aria-hidden="true" />
@@ -401,7 +406,6 @@ export default function Library() {
           <div className="grid gap-4 sm:grid-cols-2">
             {visibleSaved.map((entry) => {
               const Icon = TYPE_ICON[entry.item_type];
-              const internal = entry.href.startsWith("/");
               return (
                 <Card key={entry.id} className="flex gap-4 p-4 card-hover animate-fade-in">
                   <div className="w-20 shrink-0 overflow-hidden rounded-lg border border-border">
@@ -420,17 +424,23 @@ export default function Library() {
                       <p className="mt-2 text-xs text-muted-foreground">{entry.meta}</p>
                     )}
                     <div className="mt-auto flex gap-2 pt-4">
-                      {internal && (
-                        <Link to={entry.href} className="flex-1">
-                          <Button className="w-full" size="sm">
-                            Read
-                          </Button>
-                        </Link>
-                      )}
+                      <Link
+                        to={
+                          entry.item_type === "video"
+                            ? `/watch/${entry.item_key}`
+                            : entry.item_type === "article"
+                            ? entry.href
+                            : `/read/${entry.item_key}`
+                        }
+                        className="flex-1"
+                      >
+                        <Button className="w-full" size="sm">
+                          {entry.item_type === "video" ? "Watch" : "Read"}
+                        </Button>
+                      </Link>
                       <Button
                         size="sm"
                         variant="outline"
-                        className={internal ? "" : "flex-1"}
                         onClick={() => void removeSaved(entry)}
                         aria-label={`Remove ${entry.title} from Saved`}
                       >
@@ -444,70 +454,7 @@ export default function Library() {
             })}
           </div>
         )
-      ) : tab === "article" ? (
-        /* ---------------- articles: editorial cards ---------------- */
-        visibleArticles.length === 0 ? (
-          <EmptyState
-            icon={<Search className="h-8 w-8" />}
-            title="No articles match"
-            body="Try a broader term — article search covers the full text."
-          />
-        ) : (
-          <div className="grid gap-4 md:grid-cols-2">
-            {visibleArticles.map((article) => (
-              <Card
-                key={article.id}
-                className="flex flex-col overflow-hidden p-0 card-hover animate-fade-in"
-              >
-                <Link to={`/feed/${article.slug}`} tabIndex={-1} aria-hidden="true">
-                  <Cover
-                    src={article.cover}
-                    width={360}
-                    height={200}
-                    className="border-b border-border"
-                  />
-                </Link>
-                <div className="flex flex-1 flex-col p-5">
-                  <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                    <Badge variant={article.tag === "Sponsored" ? "muted" : "default"}>
-                      {article.tag}
-                    </Badge>
-                    <span>{article.read_minutes} min read</span>
-                  </div>
-                  <Link to={`/feed/${article.slug}`} className="group mt-3">
-                    <h3 className="font-display text-lg font-bold leading-snug group-hover:text-primary">
-                      {article.title}
-                    </h3>
-                  </Link>
-                  <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">
-                    {article.excerpt}
-                  </p>
-                  <p className="mt-3 text-xs text-muted-foreground">{article.author}</p>
-                  <div className="mt-auto flex gap-2 pt-4">
-                    <Link to={`/feed/${article.slug}`} className="flex-1">
-                      <Button className="w-full" size="sm">
-                        Read
-                      </Button>
-                    </Link>
-                    <Button
-                      size="sm"
-                      variant={article.saved ? "outline" : "default"}
-                      onClick={() => void toggleArticle(article)}
-                      aria-pressed={article.saved}
-                      aria-label={article.saved ? "Remove from Saved" : `Save ${article.title}`}
-                    >
-                      <Bookmark
-                        className={cn("h-4 w-4", article.saved && "fill-current")}
-                        aria-hidden="true"
-                      />
-                    </Button>
-                  </div>
-                </div>
-              </Card>
-            ))}
-          </div>
-        )
-      ) : /* ---------------- videos / books / pdfs ---------------- */
+      ) : /* ---------------- videos and books ---------------- */
       visibleResources.length === 0 ? (
         <EmptyState
           icon={<Search className="h-8 w-8" />}
@@ -525,14 +472,18 @@ export default function Library() {
         <div className="grid gap-4 sm:grid-cols-2">
           {visibleResources.map((resource) => (
             <Card key={resource.id} className="flex gap-4 p-4 card-hover animate-fade-in">
-              <div className="relative w-24 shrink-0 overflow-hidden rounded-lg border border-border">
+              <Link
+                to={openPath(resource)}
+                aria-label={`${CTA[resource.kind] ?? "Open"} ${resource.title}`}
+                className="relative w-24 shrink-0 overflow-hidden rounded-lg border border-border"
+              >
                 <Cover src={resource.cover} width={180} height={240} />
                 {resource.kind === "video" && (
-                  <span className="absolute inset-0 flex items-center justify-center bg-black/25">
+                  <span className="absolute inset-0 flex items-center justify-center bg-black/25 transition-colors hover:bg-black/35">
                     <Play className="h-6 w-6 fill-white text-white" aria-hidden="true" />
                   </span>
                 )}
-              </div>
+              </Link>
 
               <div className="flex min-w-0 flex-1 flex-col">
                 <div className="flex flex-wrap items-center gap-2">
@@ -567,16 +518,12 @@ export default function Library() {
                 </div>
 
                 <div className="mt-auto flex gap-2 pt-4">
-                  <Button
-                    className="flex-1"
-                    size="sm"
-                    disabled={!resource.url}
-                    title={resource.url ? undefined : "No file attached in this build"}
-                    onClick={() => resource.url && window.open(resource.url, "_blank", "noopener")}
-                  >
-                    {CTA[resource.kind] ?? "Open"}
-                    <span className="sr-only"> {resource.title}</span>
-                  </Button>
+                  <Link to={openPath(resource)} className="flex-1">
+                    <Button className="w-full" size="sm">
+                      {CTA[resource.kind] ?? "Open"}
+                      <span className="sr-only"> {resource.title}</span>
+                    </Button>
+                  </Link>
                   <Button
                     size="sm"
                     variant={resource.saved ? "outline" : "default"}

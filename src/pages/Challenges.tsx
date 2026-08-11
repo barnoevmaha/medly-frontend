@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
-  Award, CheckCircle2, ChevronRight, Clock, Flame, Medal, Target, Trophy, Users,
+  Award, CheckCircle2, ChevronRight, Clock, Flame, Medal, PencilLine, Sprout, Target,
+  Trophy, Users,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -9,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Avatar } from "@/components/ui/avatar";
-import { IconTile } from "@/components/ui/icon";
+import { Cover } from "@/components/ui/cover";
 import { EmptyState, ErrorState, SkeletonCard } from "@/components/ui/states";
 import { useToast } from "@/components/ui/toast";
 import {
@@ -20,7 +21,12 @@ import {
 } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
-const difficultyVariant = { easy: "success", medium: "warning", hard: "accent" } as const;
+/* Difficulty reads as a colour before it reads as a word. */
+const DIFFICULTY = {
+  easy: { color: "#16A34A", icon: Sprout },
+  medium: { color: "#EA580C", icon: PencilLine },
+  hard: { color: "#DC2626", icon: Flame },
+} as const;
 const medalColor = ["text-warning", "text-muted-foreground", "text-accent"];
 
 function endsIn(iso: string | null): string {
@@ -140,68 +146,89 @@ export default function Challenges() {
             const progress = challenge.question_count
               ? (challenge.answered_count / challenge.question_count) * 100
               : 0;
+            const difficulty =
+              DIFFICULTY[challenge.difficulty as keyof typeof DIFFICULTY] ?? DIFFICULTY.medium;
             return (
-              <Card key={challenge.id} className="flex flex-col p-5 card-hover animate-fade-in">
-                <div className="flex items-start justify-between gap-3">
-                  <IconTile name={challenge.icon} />
-                  <div className="flex items-center gap-2">
-                    <Badge
-                      variant={
-                        difficultyVariant[challenge.difficulty as keyof typeof difficultyVariant] ??
-                        "muted"
-                      }
-                    >
-                      {challenge.difficulty}
-                    </Badge>
-                    <Badge variant="solid">{challenge.points} pts</Badge>
-                  </div>
+              <Card
+                key={challenge.id}
+                className="flex flex-col overflow-hidden p-0 card-hover animate-fade-in"
+              >
+                {/* Cover, with the two badges floating over it. */}
+                <div className="relative">
+                  <Link
+                    to={`/challenges/${challenge.slug}`}
+                    tabIndex={-1}
+                    aria-hidden="true"
+                    className="block"
+                  >
+                    <Cover
+                      src={challenge.cover}
+                      width={360}
+                      height={160}
+                      className="border-b border-border"
+                    />
+                  </Link>
+                  <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full bg-white/90 px-2.5 py-1 text-xs font-bold text-slate-800 shadow-soft backdrop-blur">
+                    <Trophy className="h-3.5 w-3.5" aria-hidden="true" />
+                    {challenge.points} pts
+                  </span>
+                  <span
+                    className="absolute bottom-3 left-3 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold capitalize text-white shadow-soft"
+                    style={{ backgroundColor: difficulty.color }}
+                  >
+                    <difficulty.icon className="h-3.5 w-3.5" aria-hidden="true" />
+                    {challenge.difficulty}
+                  </span>
                 </div>
 
-                <h3 className="mt-4 font-display text-lg font-bold leading-snug">
-                  {challenge.title}
-                </h3>
-                <p className="mt-2 text-sm text-muted-foreground">{challenge.description}</p>
-                <p className="mt-2 text-xs text-muted-foreground">
-                  Topic: {challenge.topic} · {challenge.question_count} questions
-                </p>
+                <div className="flex flex-1 flex-col p-5">
+                  <h3 className="font-display text-lg font-bold leading-snug">
+                    {challenge.title}
+                  </h3>
+                  <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">
+                    {challenge.description}
+                  </p>
 
-                <div className="mt-5">
-                  <Progress value={progress} />
-                  <div className="mt-2 flex items-center justify-between text-sm text-muted-foreground">
+                  <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
                     <span className="flex items-center gap-1.5">
-                      <Users className="h-4 w-4" />
+                      <Users className="h-4 w-4" aria-hidden="true" />
                       {challenge.participants.toLocaleString()} joined
                     </span>
                     <span className="flex items-center gap-1.5">
-                      <Clock className="h-4 w-4" />
+                      <Clock className="h-4 w-4" aria-hidden="true" />
                       {endsIn(challenge.ends_at)}
                     </span>
                   </div>
-                  {challenge.joined && (
-                    <p className="mt-2 text-xs text-muted-foreground">
-                      {challenge.answered_count} of {challenge.question_count} answered ·{" "}
-                      {challenge.earned_points} pts earned
-                    </p>
-                  )}
-                </div>
 
-                <Button
-                  variant={challenge.completed ? "outline" : "default"}
-                  className="mt-5 w-full"
-                  disabled={busy === challenge.slug}
-                  onClick={() => void open(challenge)}
-                >
-                  {challenge.completed ? (
-                    <>
-                      <CheckCircle2 className="h-4 w-4" />
-                      Review answers
-                    </>
-                  ) : challenge.joined ? (
-                    "Continue challenge"
-                  ) : (
-                    "Join challenge"
+                  {challenge.joined && (
+                    <div className="mt-3">
+                      <Progress value={progress} />
+                      <p className="mt-1.5 text-xs text-muted-foreground">
+                        {challenge.answered_count} of {challenge.question_count} answered ·{" "}
+                        {challenge.earned_points} pts earned
+                      </p>
+                    </div>
                   )}
-                </Button>
+
+                  <Button
+                    variant="outline"
+                    className="mt-auto w-full border-primary text-primary hover:bg-primary/5"
+                    disabled={busy === challenge.slug}
+                    onClick={() => void open(challenge)}
+                  >
+                    {challenge.completed ? (
+                      <>
+                        <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+                        Review answers
+                      </>
+                    ) : (
+                      <>
+                        {challenge.joined ? "Continue Challenge" : "Join Challenge"}
+                        <ChevronRight className="h-4 w-4" aria-hidden="true" />
+                      </>
+                    )}
+                  </Button>
+                </div>
               </Card>
             );
           })}
@@ -230,7 +257,7 @@ export default function Challenges() {
                 <span className="font-display font-bold text-muted-foreground">#{row.rank}</span>
               )}
             </div>
-            <Avatar name={row.name} className="h-10 w-10 shrink-0 text-xs" />
+            <Avatar src={row.avatar_url || undefined} name={row.name} className="h-10 w-10 shrink-0 text-xs" />
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
                 <span className="truncate font-semibold">{row.name}</span>
