@@ -141,6 +141,25 @@ export interface ChatResponse {
   disclaimer: string;
   provider: string;
   audit_event_id?: number | null;
+  /** Set only when a hosted model answered, e.g. "gemini-3.5-flash". */
+  model?: string | null;
+}
+
+/** Follow-ups the server offers under an answer. Wording lives server-side. */
+export type QuickAction =
+  | "simpler"
+  | "deeper"
+  | "example"
+  | "mcq"
+  | "case"
+  | "summary"
+  | "quiz";
+
+export interface ChatOptions {
+  sessionId?: string;
+  /** Ground the answer in one article the reader is on. */
+  articleSlug?: string;
+  action?: QuickAction;
 }
 
 export interface AuditEvent {
@@ -616,11 +635,19 @@ export const api = {
   completeLesson: (id: number) =>
     request<LessonSummary>(`/api/courses/lessons/${id}/complete`, { method: "POST" }),
 
-  chat: (message: string, sessionId?: string) =>
-    request<ChatResponse>("/api/assistant/chat", {
+  chat: (message: string, options: string | ChatOptions = {}) => {
+    // The second argument used to be a bare session id; both forms still work.
+    const opts: ChatOptions = typeof options === "string" ? { sessionId: options } : options;
+    return request<ChatResponse>("/api/assistant/chat", {
       method: "POST",
-      body: JSON.stringify({ message, session_id: sessionId }),
-    }),
+      body: JSON.stringify({
+        message,
+        session_id: opts.sessionId,
+        article_slug: opts.articleSlug,
+        action: opts.action,
+      }),
+    });
+  },
   suggestions: () => request<string[]>("/api/assistant/suggestions"),
 
   audit: (params: Record<string, string | number | boolean> = {}) => {

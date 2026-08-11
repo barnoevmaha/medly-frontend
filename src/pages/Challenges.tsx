@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { StatRow } from "@/components/ui/stat-tile";
+import { StatCentered } from "@/components/ui/stat-tile";
 import { Avatar } from "@/components/ui/avatar";
 import { Cover } from "@/components/ui/cover";
 import { EmptyState, ErrorState, SkeletonCard } from "@/components/ui/states";
@@ -95,20 +95,25 @@ export default function Challenges() {
     }
   }
 
+  /* One colour each, so the row reads as three different measures rather than
+     three copies of the same card. */
   const stats = [
     {
       icon: Flame,
-      value: profile ? profile.points.toLocaleString() : "—",
+      color: "#EF6B57",
+      value: profile ? profile.points.toLocaleString() : "\u2014",
       label: t("challenges.totalPoints"),
     },
     {
       icon: Target,
-      value: profile ? `#${profile.rank}` : "—",
+      color: "#0F9B96",
+      value: profile ? `#${profile.rank}` : "\u2014",
       label: t("challenges.ofStudents", { n: profile?.total_users ?? 0 }),
     },
     {
       icon: Award,
-      value: profile ? String(profile.challenges_completed) : "—",
+      color: "#E8A33C",
+      value: profile ? String(profile.challenges_completed) : "\u2014",
       label: t("challenges.started"),
     },
   ];
@@ -121,7 +126,13 @@ export default function Challenges() {
 
       <div className="mb-10 grid grid-cols-1 gap-5 sm:grid-cols-3">
         {stats.map((stat) => (
-          <StatRow key={stat.label} icon={stat.icon} value={stat.value} label={stat.label} />
+          <StatCentered
+            key={stat.label}
+            icon={stat.icon}
+            color={stat.color}
+            value={stat.value}
+            label={stat.label}
+          />
         ))}
       </div>
 

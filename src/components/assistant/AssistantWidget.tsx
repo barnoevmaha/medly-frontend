@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Bot, X, Send, ShieldAlert, Loader2, Info } from "lucide-react";
+import { Bot, X, Send, ShieldAlert, Loader2, Info, Maximize2 } from "lucide-react";
+import { Link } from "react-router-dom";
 import { api, type ChatResponse, type RiskLevel } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -137,9 +138,18 @@ export function AssistantWidget() {
               <Bot className="h-5 w-5 text-primary-foreground" />
             </div>
             <div className="min-w-0 flex-1">
-              <div className="font-display text-sm font-bold">Study Assistant</div>
+              <div className="font-display text-sm font-bold">Medly AI</div>
               <div className="text-xs text-muted-foreground">Educational use · every reply logged</div>
             </div>
+            {/* Same conversation, more room. */}
+            <Link
+              to="/ai"
+              onClick={() => setOpen(false)}
+              aria-label="Open Medly AI full page"
+              className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <Maximize2 className="h-4 w-4" aria-hidden="true" />
+            </Link>
           </header>
 
           <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto px-4 py-4">

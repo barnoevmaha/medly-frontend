@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ChevronRight, Clock, Users } from "lucide-react";
+import { ChevronRight, Clock, Sparkles, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -92,6 +92,12 @@ export default function Dashboard() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Link to="/ai">
+            <Button>
+              <Sparkles className="h-4 w-4" aria-hidden="true" />
+              Medly AI
+            </Button>
+          </Link>
           <Link to="/learn">
             <Button variant="outline">{t("dashboard.aiTraining")}</Button>
           </Link>

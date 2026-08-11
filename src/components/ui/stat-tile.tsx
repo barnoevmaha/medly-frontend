@@ -139,5 +139,41 @@ export function StatRow({
   );
 }
 
+/**
+ * Centred card: bare coloured icon on top, value, then label.
+ *
+ * No tinted square here — at three-across the icon has room to be the only
+ * colour on the card, and dropping the container is what keeps the row light.
+ */
+export function StatCentered({
+  icon: Icon,
+  value,
+  label,
+  color,
+  className,
+}: {
+  icon: LucideIcon;
+  value: string;
+  label: string;
+  /** Accent for the icon. Everything else stays neutral. */
+  color: string;
+  className?: string;
+}) {
+  return (
+    <Card className={cn("h-full rounded-[20px] p-6 text-center card-hover", className)}>
+      <Icon
+        className="mx-auto h-7 w-7"
+        strokeWidth={2}
+        color={color}
+        aria-hidden="true"
+      />
+      <div className="mt-4 font-display text-2xl font-bold leading-none text-foreground">
+        {value}
+      </div>
+      <div className="mt-2 text-sm text-muted-foreground">{label}</div>
+    </Card>
+  );
+}
+
 /** Backwards-compatible alias for the older inline tile. */
 export const StatTile = StatRow;

@@ -14,6 +14,7 @@ import ChallengeRun from "@/pages/ChallengeRun";
 import Library from "@/pages/Library";
 import Watch from "@/pages/Watch";
 import Read from "@/pages/Read";
+import MedlyAI from "@/pages/MedlyAI";
 import Settings from "@/pages/Settings";
 import Leaderboard from "@/pages/Leaderboard";
 import Premium from "@/pages/Premium";
@@ -49,6 +50,9 @@ export default function App() {
               <Route path="/library" element={<Library />} />
               <Route path="/watch/:slug" element={<Watch />} />
               <Route path="/read/:slug" element={<Read />} />
+              {/* Medly AI. The floating widget is for quick questions; this is
+                  the full page, and both call the same guarded endpoint. */}
+              <Route path="/ai" element={<MedlyAI />} />
               {/* Saved became a tab inside Library. Old links still resolve. */}
               <Route
                 path="/saved"
