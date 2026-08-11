@@ -49,13 +49,6 @@ export default function Dashboard() {
         to: "/leaderboard",
       },
       {
-        stat: "points",
-        label: t("dashboard.statPoints"),
-        value: profile ? profile.points.toLocaleString() : "—",
-        detail: t("dashboard.earnedFrom"),
-        to: "/leaderboard",
-      },
-      {
         stat: "streak",
         label: t("dashboard.statStreak"),
         value: profile ? `${profile.streak_days}` : "—",
@@ -64,6 +57,13 @@ export default function Dashboard() {
             ? t("dashboard.best", { n: profile.longest_streak })
             : t("dashboard.daysInRow"),
         to: "/profile",
+      },
+      {
+        stat: "points",
+        label: t("dashboard.statPoints"),
+        value: profile ? profile.points.toLocaleString() : "—",
+        detail: t("dashboard.earnedFrom"),
+        to: "/leaderboard",
       },
       {
         stat: "badges",
@@ -103,7 +103,7 @@ export default function Dashboard() {
 
       {error && <ErrorState message={error} />}
 
-      <div className="mb-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
         {stats.map((item) => (
           <Link key={item.label} to={item.to} className="block h-full">
             <StatCard

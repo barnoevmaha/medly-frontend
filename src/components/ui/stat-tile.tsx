@@ -35,26 +35,37 @@ export const STAT_STYLE: Record<StatKey, Accent & { icon: LucideIcon; label: str
   badges: { icon: Star, color: "#3B82F6", background: "#E8F0FE", label: "Badges" },
 };
 
-/** 80×80 rounded square, very light tint, icon centred in the accent colour. */
+/** Rounded square, very light tint, icon centred in the accent colour. */
 function IconSquare({
   icon: Icon,
   accent,
+  size = "lg",
   className,
 }: {
   icon: LucideIcon;
   accent: Accent;
+  /** `sm` = 56px for the stacked cards, `lg` = 80px for the wide rows. */
+  size?: "sm" | "lg";
   className?: string;
 }) {
+  const small = size === "sm";
   return (
     <span
       className={cn(
-        "flex h-16 w-16 shrink-0 items-center justify-center rounded-[18px] sm:h-20 sm:w-20 sm:rounded-[20px]",
+        "flex shrink-0 items-center justify-center",
+        small
+          ? "h-14 w-14 rounded-2xl"
+          : "h-16 w-16 rounded-[18px] sm:h-20 sm:w-20 sm:rounded-[20px]",
         className
       )}
       style={{ backgroundColor: accent.background }}
       aria-hidden="true"
     >
-      <Icon className="h-7 w-7 sm:h-8 sm:w-8" strokeWidth={2} color={accent.color} />
+      <Icon
+        className={small ? "h-6 w-6" : "h-7 w-7 sm:h-8 sm:w-8"}
+        strokeWidth={2}
+        color={accent.color}
+      />
     </span>
   );
 }
@@ -66,8 +77,12 @@ export function StatIcon({ stat }: { stat: StatKey }) {
 }
 
 /**
- * Stacked card: icon, then label, then the value, then a line of detail.
- * Fills its grid cell so a row of them is always the same height.
+ * Stacked card: tinted icon, then label, then the value, then a line of
+ * detail. Fills its grid cell so a row of them is always the same height.
+ *
+ * The detail line is the success colour — it is the "and here is how that is
+ * going" line, and reading it green is what makes the row feel like progress
+ * rather than four static readouts.
  */
 export function StatCard({
   stat,
@@ -84,13 +99,13 @@ export function StatCard({
 }) {
   const { icon, label: fallbackLabel, ...accent } = STAT_STYLE[stat];
   return (
-    <Card className={cn("h-full rounded-[24px] p-6 card-hover", className)}>
-      <IconSquare icon={icon} accent={accent} />
-      <div className="mt-5 text-sm font-medium text-muted-foreground">{label ?? fallbackLabel}</div>
-      <div className="mt-1.5 font-display text-3xl font-bold leading-none text-foreground">
+    <Card className={cn("h-full rounded-[20px] p-5 card-hover", className)}>
+      <IconSquare icon={icon} accent={accent} size="sm" />
+      <div className="mt-4 text-sm text-muted-foreground">{label ?? fallbackLabel}</div>
+      <div className="mt-1 font-display text-3xl font-bold leading-tight text-foreground">
         {value}
       </div>
-      {detail && <div className="mt-2 text-xs text-muted-foreground">{detail}</div>}
+      {detail && <div className="mt-1 text-sm font-medium text-success">{detail}</div>}
     </Card>
   );
 }
