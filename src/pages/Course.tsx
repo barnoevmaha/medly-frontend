@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
-  ArrowLeft, BookOpen, CheckCircle2, Circle, Clock, Loader2, ShieldCheck, Play,
+  ArrowLeft, ArrowRight, BookOpen, CheckCircle2, Circle, Clock, Loader2, ShieldCheck, Play,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -94,6 +94,10 @@ export default function Course() {
 
   const exam = quizzes.find((q) => q.is_certification) ?? quizzes[0];
   const allDone = course.progress_pct === 100;
+  const position = lesson ? course.lessons.findIndex((item) => item.id === lesson.id) : -1;
+  const previous = position > 0 ? course.lessons[position - 1] : null;
+  const following = position >= 0 ? course.lessons[position + 1] : null;
+  const completedCount = course.lessons.filter((item) => item.status === "completed").length;
 
   return (
     <>
@@ -199,7 +203,7 @@ export default function Course() {
               <div className="flex flex-wrap items-center gap-3">
                 <Badge variant="muted">
                   <BookOpen className="h-3 w-3" />
-                  Lesson {lesson.order}
+                  Lesson {position + 1} of {course.lessons.length}
                 </Badge>
                 <span className="text-sm text-muted-foreground">
                   {lesson.duration_minutes} min read
@@ -227,16 +231,52 @@ export default function Course() {
                 <Markdown>{lesson.body_md}</Markdown>
               </div>
 
-              <div className="mt-8 flex flex-wrap gap-3 border-t border-border pt-6">
-                <Button onClick={markComplete} disabled={busy}>
-                  {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-                  {lesson.status === "completed" ? "Next lesson" : "Mark complete & continue"}
-                </Button>
-                {exam && (
-                  <Link to={`/quiz/${exam.id}`}>
-                    <Button variant="outline">Skip to the exam</Button>
-                  </Link>
-                )}
+              <div className="mt-8 border-t border-border pt-6">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <Button
+                    variant="ghost"
+                    disabled={!previous || busy}
+                    onClick={() => previous && openLesson(previous.id)}
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                    <span className="max-w-[12rem] truncate">
+                      {previous ? previous.title : "Previous"}
+                    </span>
+                  </Button>
+
+                  <span className="text-sm text-muted-foreground">
+                    {completedCount} of {course.lessons.length} complete
+                  </span>
+
+                  <Button
+                    variant="outline"
+                    disabled={!following || busy}
+                    onClick={() => following && openLesson(following.id)}
+                  >
+                    <span className="max-w-[12rem] truncate">
+                      {following ? following.title : "Next"}
+                    </span>
+                    <ArrowRight className="h-4 w-4" />
+                  </Button>
+                </div>
+
+                <div className="mt-4 flex flex-wrap gap-3">
+                  <Button onClick={markComplete} disabled={busy}>
+                    {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                    {lesson.status === "completed"
+                      ? following
+                        ? "Continue to next lesson"
+                        : "Lesson complete"
+                      : "Mark complete & continue"}
+                  </Button>
+                  {exam && (
+                    <Link to={`/quiz/${exam.id}`}>
+                      <Button variant="outline">
+                        {allDone ? "Take the exam" : "Skip to the exam"}
+                      </Button>
+                    </Link>
+                  )}
+                </div>
               </div>
             </>
           ) : (

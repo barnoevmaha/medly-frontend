@@ -100,7 +100,7 @@ export function AssistantWidget() {
           content:
             error instanceof Error && error.message
               ? `Could not reach the assistant: ${error.message}`
-              : "Could not reach the assistant. Is the API running on port 8000?",
+              : "Could not reach the assistant. Check that the API is running and reachable.",
         },
       ]);
     } finally {

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api";
+import { useSession } from "@/lib/session";
 import { site } from "@/config/site";
 
 const DEMO_ACCOUNTS = [
@@ -16,6 +17,7 @@ const DEMO_ACCOUNTS = [
 export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { refresh } = useSession();
   // Set by AppLayout when it bounces an unauthenticated visit.
   const from = (location.state as { from?: string } | null)?.from;
   const [email, setEmail] = useState("certified@medly.dev");
@@ -29,6 +31,9 @@ export default function Login() {
     setError(null);
     try {
       await api.login(email, password);
+      // Populate the shared session before navigating, or the first page after
+      // sign-in renders with no user and has to fetch it again.
+      await refresh();
       navigate(from ?? "/dashboard", { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Sign in failed");
@@ -49,7 +54,7 @@ export default function Login() {
 
         <h1 className="mt-6 font-display text-xl font-bold">Sign in</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          The API must be running on port 8000.
+          Sign in to continue your AI safety training.
         </p>
 
         <form onSubmit={submit} className="mt-5 space-y-3">

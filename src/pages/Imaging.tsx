@@ -11,7 +11,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { FilmViewer } from "@/components/imaging/FilmViewer";
-import { ApiError, api, type AnalysisJob, type Me, type Modality } from "@/lib/api";
+import { ImagingTabs } from "@/components/imaging/ImagingTabs";
+import { ApiError, api, type AnalysisJob, type CaseSummary, type Me, type Modality } from "@/lib/api";
 
 const STEPS = ["Case", "Your reading", "Model output", "Your decision"] as const;
 
@@ -35,6 +36,7 @@ export default function Imaging() {
   const [cases, setCases] = useState<AnalysisJob[]>([]);
   const [job, setJob] = useState<AnalysisJob | null>(null);
 
+  const [references, setReferences] = useState<CaseSummary[]>([]);
   const [caseRef, setCaseRef] = useState("");
   const [modality, setModality] = useState<Modality>("xray");
   const [reading, setReading] = useState("");
@@ -46,10 +48,11 @@ export default function Imaging() {
   const [error, setError] = useState<{ status: number; message: string } | null>(null);
 
   useEffect(() => {
-    Promise.all([api.me(), api.myCases()])
-      .then(([user, list]) => {
+    Promise.all([api.me(), api.myCases(), api.cases().catch(() => [])])
+      .then(([user, list, published]) => {
         setMe(user);
         setCases(list);
+        setReferences(published.filter((item) => item.published).slice(0, 6));
         if (list.length) setJob(list[0]);
       })
       .catch((e) => setError({ status: 0, message: e instanceof Error ? e.message : "Load failed" }))
@@ -153,6 +156,8 @@ export default function Imaging() {
         }
       />
 
+      <ImagingTabs />
+
       {locked && (
         <Card className="mb-6 border-warning/30 bg-warning/5 p-5">
           <div className="flex items-start gap-3">
@@ -211,6 +216,36 @@ export default function Imaging() {
                 always produces the same case.
               </p>
             </form>
+
+            {references.length > 0 && (
+              <div className="mt-4 border-t border-border pt-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Published case references
+                </p>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {references.map((reference) => (
+                    <button
+                      key={reference.id}
+                      type="button"
+                      onClick={() => {
+                        setCaseRef(reference.case_ref);
+                        setModality(reference.modality);
+                      }}
+                      className="rounded-full border border-border px-2.5 py-1 text-xs transition-colors hover:bg-muted"
+                      title={reference.title}
+                    >
+                      {reference.case_ref}
+                    </button>
+                  ))}
+                </div>
+                <Link
+                  to="/imaging/cases"
+                  className="mt-2 inline-block text-xs text-primary hover:underline"
+                >
+                  Browse all case references
+                </Link>
+              </div>
+            )}
           </Card>
 
           <Card className="p-5">

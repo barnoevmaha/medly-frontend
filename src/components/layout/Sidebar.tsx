@@ -1,9 +1,12 @@
 import { NavLink } from "react-router-dom";
-import { Crown, Settings, LogOut } from "lucide-react";
+import { Crown, LogOut } from "lucide-react";
 import { navItems, site } from "@/config/site";
+import { useSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
 export function Sidebar() {
+  const { me, logout } = useSession();
+
   return (
     <aside className="fixed left-0 top-0 z-50 hidden h-screen w-64 flex-col border-r border-border bg-card shadow-soft md:flex">
       <NavLink to="/" className="flex items-center gap-3 px-6 py-6">
@@ -44,20 +47,29 @@ export function Sidebar() {
       </nav>
 
       <div className="space-y-1 border-t border-border p-3">
-        <NavLink
-          to="/premium"
-          className="flex items-center gap-3 rounded-xl px-4 py-3 text-accent transition-colors hover:bg-accent/10"
+        {me && (
+          <div className="px-4 py-2">
+            <p className="truncate text-sm font-semibold">{me.full_name}</p>
+            <p className="truncate text-xs text-muted-foreground">
+              {me.is_premium ? "Premium" : "Free"} · {me.points.toLocaleString()} pts
+            </p>
+          </div>
+        )}
+        {!me?.is_premium && (
+          <NavLink
+            to="/premium"
+            className="flex items-center gap-3 rounded-xl px-4 py-3 text-accent transition-colors hover:bg-accent/10"
+          >
+            <Crown className="h-5 w-5" />
+            <span className="font-medium">Go Premium</span>
+          </NavLink>
+        )}
+        <button
+          onClick={logout}
+          className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         >
-          <Crown className="h-5 w-5" />
-          <span className="font-medium">Go Premium</span>
-        </NavLink>
-        <button className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
-          <Settings className="h-5 w-5" />
-          <span className="font-medium">Settings</span>
-        </button>
-        <button className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
           <LogOut className="h-5 w-5" />
-          <span className="font-medium">Logout</span>
+          <span className="font-medium">Log out</span>
         </button>
       </div>
     </aside>

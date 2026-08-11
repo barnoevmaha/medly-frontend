@@ -147,6 +147,11 @@ export default function Quiz() {
                   Pass mark {result.passing_score}% · competency band{" "}
                   <span className="font-medium text-foreground">{result.band}</span>
                 </p>
+                {result.points_awarded > 0 && (
+                  <p className="mt-1 text-sm font-medium text-success">
+                    +{result.points_awarded} points · {result.total_points.toLocaleString()} total
+                  </p>
+                )}
               </div>
             </div>
             <div className="flex gap-2">

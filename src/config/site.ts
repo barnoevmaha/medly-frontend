@@ -4,7 +4,7 @@
    ============================================================= */
 
 import {
-  House, Users, Trophy, BookOpen, User, GraduationCap, ShieldCheck, Scan,
+  House, Users, Trophy, Bookmark, User, GraduationCap, ShieldCheck, Scan,
   type LucideIcon,
 } from "lucide-react";
 
@@ -22,7 +22,7 @@ export const navItems: NavItem[] = [
   { label: "Dashboard", to: "/dashboard", icon: House },
   { label: "Community", to: "/community", icon: Users },
   { label: "Challenges", to: "/challenges", icon: Trophy },
-  { label: "Library", to: "/library", icon: BookOpen },
+  { label: "Saved", to: "/saved", icon: Bookmark },
   { label: "AI Training", to: "/learn", icon: GraduationCap },
   { label: "Imaging", to: "/imaging", icon: Scan },
   { label: "Governance", to: "/governance", icon: ShieldCheck },
