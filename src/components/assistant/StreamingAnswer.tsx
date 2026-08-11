@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { Markdown } from "@/components/ui/markdown";
+import { traceStream } from "@/lib/api";
 
 /**
  * An answer that is still arriving.
@@ -23,6 +24,8 @@ export function StreamingAnswer({
   text: string;
   streaming: boolean;
 }) {
+  if (streaming) traceStream("StreamingAnswer render", `chars=${text.length}`);
+
   const [settled, pending] = useMemo(() => {
     if (!streaming) return [text, ""];
     const boundary = text.lastIndexOf("\n\n");

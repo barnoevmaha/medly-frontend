@@ -109,6 +109,8 @@ export function AssistantWidget() {
   // of one-token frames is one render instead of forty.
   const pendingRef = useRef("");
   const flushTimer = useRef<number | null>(null);
+  /** True until the first fragment of the current answer has painted. */
+  const firstPaint = useRef(true);
   // False as soon as the user scrolls up mid-generation; true again when they
   // come back to the bottom.
   const stickToBottom = useRef(true);
@@ -170,6 +172,7 @@ export function AssistantWidget() {
       const controller = new AbortController();
       abortRef.current = controller;
       pendingRef.current = "";
+      firstPaint.current = true;
       stickToBottom.current = true;
 
       setMessages((prev) => [
@@ -216,6 +219,16 @@ export function AssistantWidget() {
             onChunk: (text) => {
               setWaiting(false);
               pendingRef.current += text;
+              traceStream("text appended", `chars=${text.length} buffered=${pendingRef.current.length}`);
+              // Leading edge: the first fragment paints immediately rather
+              // than sitting in the buffer. After a 3-4s wait for the first
+              // token, another 60ms of blank panel is the one delay worth
+              // removing. Later fragments still coalesce on the timer.
+              if (firstPaint.current) {
+                firstPaint.current = false;
+                flush();
+                return;
+              }
               if (flushTimer.current === null) {
                 flushTimer.current = window.setTimeout(flush, FLUSH_MS);
               }
