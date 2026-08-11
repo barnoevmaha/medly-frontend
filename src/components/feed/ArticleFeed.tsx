@@ -8,19 +8,20 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { Cover } from "@/components/ui/cover";
 import { EmptyState, ErrorState, SkeletonCard } from "@/components/ui/states";
+import { useLanguage } from "@/lib/i18n";
 import { api, type ArticleSummary } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
+/* Filter values stay in English — they are the exact `tag` the API filters
+   and searches on — and are only translated for display, via FILTER_LABEL. */
 const FILTERS = ["All", "Medical News", "Study Tip", "Upcoming Event", "Sponsored"];
-
-function relative(iso: string): string {
-  const minutes = Math.max(1, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
-  if (minutes < 60) return `${minutes} min ago`;
-  const hours = Math.round(minutes / 60);
-  if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
-  const days = Math.round(hours / 24);
-  return `${days} day${days === 1 ? "" : "s"} ago`;
-}
+const FILTER_KEY: Record<string, string> = {
+  All: "feed.tagAll",
+  "Medical News": "feed.tagMedicalNews",
+  "Study Tip": "feed.tagStudyTip",
+  "Upcoming Event": "feed.tagUpcomingEvent",
+  Sponsored: "feed.tagSponsored",
+};
 
 /**
  * The feed, in one place.
@@ -40,6 +41,19 @@ export function ArticleFeed({
   onSavedChange?: () => void;
 }) {
   const toast = useToast();
+  const { t, lang } = useLanguage();
+
+  const relative = useCallback(
+    (iso: string): string => {
+      const minutes = Math.max(1, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+      if (minutes < 60) return t("common.minAgo", { n: minutes });
+      const hours = Math.round(minutes / 60);
+      if (hours < 24) return t("common.hoursAgo", { n: hours });
+      const days = Math.round(hours / 24);
+      return t("common.daysAgo", { n: days });
+    },
+    [t]
+  );
 
   const [articles, setArticles] = useState<ArticleSummary[]>([]);
   const [query, setQuery] = useState("");
@@ -57,16 +71,16 @@ export function ArticleFeed({
       setArticles(await api.articles({ q: nextQuery, tag: nextFilter }));
       setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not load the feed");
+      setError(e instanceof Error ? e.message : t("feed.loadError"));
     } finally {
       setSearching(false);
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void load("", "All");
-  }, [load]);
+  }, [load, lang]);
 
   // Search runs on the server so it can look inside article bodies. Debounced
   // so a fast typist does not fire a request per keystroke.
@@ -89,13 +103,13 @@ export function ArticleFeed({
     try {
       if (next) await api.save("article", article.slug);
       else await api.unsave("article", article.slug);
-      toast(next ? "Saved to your collection" : "Removed from Saved");
+      toast(next ? t("common.savedToCollection") : t("common.removedFromSaved"));
       onSavedChange?.();
     } catch (e) {
       setArticles((current) =>
         current.map((item) => (item.id === article.id ? { ...item, saved: !next } : item))
       );
-      toast(e instanceof Error ? e.message : "Could not save that", "error");
+      toast(e instanceof Error ? e.message : t("common.couldNotSave"), "error");
     }
   }
 
@@ -104,7 +118,7 @@ export function ArticleFeed({
       const updated = await api.toggleLike(article.slug);
       setArticles((current) => current.map((item) => (item.id === updated.id ? updated : item)));
     } catch (e) {
-      toast(e instanceof Error ? e.message : "Could not register that", "error");
+      toast(e instanceof Error ? e.message : t("article.registerError"), "error");
     }
   }
 
@@ -113,10 +127,10 @@ export function ArticleFeed({
     const url = `${window.location.origin}/feed/${article.slug}`;
     try {
       await navigator.clipboard.writeText(url);
-      toast("Link copied to clipboard");
+      toast(t("common.linkCopied"));
     } catch {
       // Clipboard access needs a secure context; fall back rather than fail silently.
-      window.prompt("Copy this link", url);
+      window.prompt(t("common.copyThisLink"), url);
     }
   }
 
@@ -132,15 +146,13 @@ export function ArticleFeed({
               <Input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search articles and their content"
+                placeholder={t("feed.searchPlaceholder")}
                 className="pl-9"
-                aria-label="Search your feed"
+                aria-label={t("feed.searchAria")}
               />
             </div>
           </div>
-          <p className="mb-4 text-xs text-muted-foreground">
-            Searches the full text of every article, not just the headline.
-          </p>
+          <p className="mb-4 text-xs text-muted-foreground">{t("feed.searchHint")}</p>
 
           <div className="mb-5 flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
             {FILTERS.map((item) => (
@@ -154,7 +166,7 @@ export function ArticleFeed({
                     : "bg-card text-muted-foreground hover:bg-muted"
                 )}
               >
-                {item}
+                {t(FILTER_KEY[item] ?? item)}
               </button>
             ))}
           </div>
@@ -185,10 +197,12 @@ export function ArticleFeed({
               <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-3 text-sm">
                 <Badge variant={article.tag === "Sponsored" ? "muted" : "default"}>
-                  {article.tag}
+                  {t(FILTER_KEY[article.tag] ?? article.tag)}
                 </Badge>
                 <span className="text-muted-foreground">{relative(article.published_at)}</span>
-                <span className="text-muted-foreground">· {article.read_minutes} min read</span>
+                <span className="text-muted-foreground">
+                  · {t("article.minRead", { n: article.read_minutes })}
+                </span>
               </div>
 
               <Link to={`/feed/${article.slug}`} className="group block">
@@ -197,7 +211,7 @@ export function ArticleFeed({
                 </h3>
                 <p className="mt-2 text-sm text-muted-foreground">{article.excerpt}</p>
                 <span className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-primary">
-                  Read article
+                  {t("feed.readArticle")}
                   <ChevronRight className="h-4 w-4" />
                 </span>
               </Link>
@@ -221,7 +235,7 @@ export function ArticleFeed({
                   <Link
                     to={`/feed/${article.slug}#comments`}
                     className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted"
-                    aria-label={`Comment on ${article.title}`}
+                    aria-label={t("feed.commentAria", { title: article.title })}
                   >
                     <MessageCircle className="h-4 w-4" />
                     {article.comment_count}
@@ -229,7 +243,7 @@ export function ArticleFeed({
                   <button
                     onClick={() => void share(article)}
                     className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted"
-                    aria-label="Copy link"
+                    aria-label={t("feed.copyLinkAria")}
                   >
                     <Share2 className="h-4 w-4" />
                   </button>
@@ -237,7 +251,7 @@ export function ArticleFeed({
                     onClick={() => void toggleSave(article)}
                     aria-pressed={article.saved}
                     className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted"
-                    aria-label={article.saved ? "Remove from Saved" : "Save"}
+                    aria-label={article.saved ? t("library.removeFromSavedAria") : t("common.save")}
                   >
                     <Bookmark
                       className={cn("h-4 w-4", article.saved && "fill-primary text-primary")}
@@ -253,11 +267,11 @@ export function ArticleFeed({
           {visible.length === 0 && !error && (
             <EmptyState
               icon={<Search className="h-8 w-8" />}
-              title="Nothing matches that search"
+              title={t("feed.noMatch")}
               body={
                 query
-                  ? `No article mentions “${query}”. Try a broader term — the search covers the full text of every article.`
-                  : "No articles under this filter yet."
+                  ? t("feed.noMatchQueryBody", { query })
+                  : t("feed.noMatchFilterBody")
               }
               action={
                 !compact && (
@@ -268,7 +282,7 @@ export function ArticleFeed({
                       setFilter("All");
                     }}
                   >
-                    Clear search
+                    {t("common.clearSearch")}
                   </Button>
                 )
               }

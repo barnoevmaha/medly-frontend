@@ -30,19 +30,25 @@ const DIFFICULTY = {
 } as const;
 const medalColor = ["text-warning", "text-muted-foreground", "text-accent"];
 
-function endsIn(iso: string | null): string {
-  if (!iso) return "No deadline";
-  const ms = new Date(iso).getTime() - Date.now();
-  if (ms <= 0) return "Closed";
-  const hours = Math.floor(ms / 3_600_000);
-  if (hours < 24) return `${hours}h left`;
-  return `${Math.floor(hours / 24)}d ${hours % 24}h left`;
-}
-
 export default function Challenges() {
   const navigate = useNavigate();
   const toast = useToast();
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
+
+  function endsIn(iso: string | null): string {
+    if (!iso) return t("challenges.noDeadline");
+    const ms = new Date(iso).getTime() - Date.now();
+    if (ms <= 0) return t("challenges.closed");
+    const hours = Math.floor(ms / 3_600_000);
+    if (hours < 24) return t("challenges.hoursLeft", { n: hours });
+    return t("challenges.daysHoursLeft", { d: Math.floor(hours / 24), h: hours % 24 });
+  }
+
+  const DIFFICULTY_LABEL: Record<string, string> = {
+    easy: t("challenges.difficultyEasy"),
+    medium: t("challenges.difficultyMedium"),
+    hard: t("challenges.difficultyHard"),
+  };
 
   const [challenges, setChallenges] = useState<ChallengeSummary[]>([]);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -64,7 +70,7 @@ export default function Challenges() {
       setBoard(rows);
       setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not load challenges");
+      setError(e instanceof Error ? e.message : t("challenges.loadError"));
     } finally {
       setLoading(false);
     }
@@ -72,7 +78,7 @@ export default function Challenges() {
 
   useEffect(() => {
     void load();
-  }, []);
+  }, [lang]);
 
   async function open(challenge: ChallengeSummary) {
     setBusy(challenge.slug);
@@ -82,7 +88,7 @@ export default function Challenges() {
       if (!challenge.joined) await api.joinChallenge(challenge.slug);
       navigate(`/challenges/${challenge.slug}`);
     } catch (e) {
-      toast(e instanceof Error ? e.message : "Could not open that challenge", "error");
+      toast(e instanceof Error ? e.message : t("challenges.openError"), "error");
     } finally {
       setBusy(null);
     }
@@ -169,14 +175,14 @@ export default function Challenges() {
                   </Link>
                   <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full bg-white/90 px-2.5 py-1 text-xs font-bold text-slate-800 shadow-soft backdrop-blur">
                     <Trophy className="h-3.5 w-3.5" aria-hidden="true" />
-                    {challenge.points} pts
+                    {challenge.points} {t("dashboard.pts")}
                   </span>
                   <span
                     className="absolute bottom-3 left-3 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold capitalize text-white shadow-soft"
                     style={{ backgroundColor: difficulty.color }}
                   >
                     <difficulty.icon className="h-3.5 w-3.5" aria-hidden="true" />
-                    {challenge.difficulty}
+                    {DIFFICULTY_LABEL[challenge.difficulty] ?? challenge.difficulty}
                   </span>
                 </div>
 
@@ -203,8 +209,11 @@ export default function Challenges() {
                     <div className="mt-3">
                       <Progress value={progress} />
                       <p className="mt-1.5 text-xs text-muted-foreground">
-                        {challenge.answered_count} of {challenge.question_count} answered ·{" "}
-                        {challenge.earned_points} pts earned
+                        {t("challenges.answeredSummary", {
+                          answered: challenge.answered_count,
+                          total: challenge.question_count,
+                          pts: challenge.earned_points,
+                        })}
                       </p>
                     </div>
                   )}
@@ -260,7 +269,7 @@ export default function Challenges() {
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
                 <span className="truncate font-semibold">{row.name}</span>
-                {row.you && <Badge>You</Badge>}
+                {row.you && <Badge>{t("common.you")}</Badge>}
               </div>
               <div className="truncate text-sm text-muted-foreground">
                 {row.institution || "Medly"}

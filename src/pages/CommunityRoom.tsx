@@ -9,22 +9,13 @@ import { Avatar } from "@/components/ui/avatar";
 import { Icon } from "@/components/ui/icon";
 import { useToast } from "@/components/ui/toast";
 import { ErrorState, LoadingState } from "@/components/ui/states";
-import { useLanguage } from "@/lib/i18n";
+import { formatDateTime, useLanguage } from "@/lib/i18n";
 import {
   api,
   type CommunityDetail,
   type CommunityMessage,
 } from "@/lib/api";
 import { cn } from "@/lib/utils";
-
-function timeOf(iso: string): string {
-  return new Date(iso).toLocaleString([], {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
 
 /**
  * A community, opened: description and the conversation.
@@ -36,7 +27,7 @@ function timeOf(iso: string): string {
 export default function CommunityRoom() {
   const { slug = "" } = useParams();
   const toast = useToast();
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
 
   const [community, setCommunity] = useState<CommunityDetail | null>(null);
   const [messages, setMessages] = useState<CommunityMessage[]>([]);
@@ -57,15 +48,15 @@ export default function CommunityRoom() {
       setMessages(thread);
       setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not open this community");
+      setError(e instanceof Error ? e.message : t("room.loadError"));
     } finally {
       setLoading(false);
     }
-  }, [slug]);
+  }, [slug, t]);
 
   useEffect(() => {
     void load();
-  }, [load]);
+  }, [load, lang]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ block: "nearest" });
@@ -84,7 +75,7 @@ export default function CommunityRoom() {
         setCommunity({ ...community, joined: true, can_post: true });
       }
     } catch (e) {
-      toast(e instanceof Error ? e.message : "Message not sent", "error");
+      toast(e instanceof Error ? e.message : t("room.sendError"), "error");
     } finally {
       setSending(false);
     }
@@ -97,18 +88,22 @@ export default function CommunityRoom() {
         ? await api.leaveCommunity(slug)
         : await api.joinCommunity(slug);
       setCommunity({ ...community, ...updated });
-      toast(updated.joined ? `Joined ${updated.name}` : `Left ${updated.name}`);
+      toast(
+        updated.joined
+          ? t("communities.joinedToast", { name: updated.name })
+          : t("communities.leftToast", { name: updated.name })
+      );
     } catch (e) {
-      toast(e instanceof Error ? e.message : "That did not work", "error");
+      toast(e instanceof Error ? e.message : t("common.thatDidNotWork"), "error");
     }
   }
 
-  if (loading) return <LoadingState label="Opening community…" />;
+  if (loading) return <LoadingState label={t("room.opening")} />;
 
   if (error || !community) {
     return (
       <ErrorState
-        title="Could not open this community"
+        title={t("room.loadError")}
         message={error ?? undefined}
         onRetry={() => void load()}
       />
@@ -180,7 +175,7 @@ export default function CommunityRoom() {
                   {message.author_role !== "student" && (
                     <Badge variant="info">{message.author_role}</Badge>
                   )}
-                  <span>{timeOf(message.created_at)}</span>
+                  <span>{formatDateTime(message.created_at, lang)}</span>
                 </div>
                 <div
                   className={cn(
@@ -203,7 +198,7 @@ export default function CommunityRoom() {
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
             placeholder={t("room.messagePlaceholder", { name: community.name })}
-            aria-label="Message"
+            aria-label={t("room.messageAria")}
           />
           <Button type="submit" disabled={sending || !draft.trim()}>
             {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}

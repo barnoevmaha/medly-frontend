@@ -21,7 +21,7 @@ import { cn } from "@/lib/utils";
 export default function Community() {
   const navigate = useNavigate();
   const toast = useToast();
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
 
   const FILTERS = [
     { key: "All", label: t("communities.filterAll") },
@@ -48,9 +48,9 @@ export default function Community() {
       setCommunities(await api.communities({ q: nextQuery, filter: nextFilter }));
       setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not load communities");
+      setError(e instanceof Error ? e.message : t("communities.loadError"));
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     Promise.all([api.communities(), api.communityPermissions()])
@@ -58,9 +58,9 @@ export default function Community() {
         setCommunities(list);
         setPermissions(perms);
       })
-      .catch((e) => setError(e instanceof Error ? e.message : "Could not load communities"))
+      .catch((e) => setError(e instanceof Error ? e.message : t("communities.loadError")))
       .finally(() => setLoading(false));
-  }, []);
+  }, [lang]);
 
   useEffect(() => {
     if (loading) return;
@@ -81,9 +81,13 @@ export default function Community() {
       setCommunities((current) =>
         current.map((item) => (item.id === updated.id ? updated : item))
       );
-      toast(updated.joined ? `Joined ${updated.name}` : `Left ${updated.name}`);
+      toast(
+        updated.joined
+          ? t("communities.joinedToast", { name: updated.name })
+          : t("communities.leftToast", { name: updated.name })
+      );
     } catch (e) {
-      toast(e instanceof Error ? e.message : "That did not work", "error");
+      toast(e instanceof Error ? e.message : t("common.thatDidNotWork"), "error");
     }
   }
 
@@ -96,7 +100,7 @@ export default function Community() {
         description: form.description.trim(),
         specialty: form.specialty.trim() || "General",
       });
-      toast(`${created.name} created`);
+      toast(t("communities.createdToast", { name: created.name }));
       setComposing(false);
       setForm({ name: "", description: "", specialty: "" });
       navigate(`/community/${created.slug}`);
@@ -107,7 +111,7 @@ export default function Community() {
         setComposing(false);
         navigate("/premium");
       } else {
-        toast(e instanceof Error ? e.message : "Could not create that community", "error");
+        toast(e instanceof Error ? e.message : t("communities.createError"), "error");
       }
     } finally {
       setCreating(false);
@@ -167,13 +171,13 @@ export default function Community() {
               placeholder={t("communities.descPlaceholder")}
               required
               minLength={10}
-              aria-label="Description"
+              aria-label={t("communities.descriptionLabel")}
             />
             <Input
               value={form.specialty}
               onChange={(event) => setForm({ ...form, specialty: event.target.value })}
               placeholder={t("communities.specialtyPlaceholder")}
-              aria-label="Specialty"
+              aria-label={t("communities.specialtyLabel")}
             />
             <Button type="submit" disabled={creating}>
               {creating && <Loader2 className="h-4 w-4 animate-spin" />}
@@ -224,8 +228,8 @@ export default function Community() {
           title={t("communities.notFound")}
           body={
             query
-              ? `Nothing matches “${query}” in a community name or description.`
-              : "Nothing here under this filter yet."
+              ? t("communities.noMatchQuery", { query })
+              : t("communities.noMatchFilter")
           }
           action={
             <Button variant="outline" onClick={() => { setQuery(""); setFilter("All"); }}>

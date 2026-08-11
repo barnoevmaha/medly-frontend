@@ -66,7 +66,8 @@ export function MobileNav() {
                 <div className="min-w-0">
                   <p className="truncate font-semibold">{me.full_name}</p>
                   <p className="truncate text-xs text-muted-foreground">
-                    {me.is_premium ? t("nav.premium") : "Free"} · {me.points.toLocaleString()} pts
+                    {me.is_premium ? t("common.premium") : t("common.freePlan")} ·{" "}
+                    {me.points.toLocaleString()} {t("dashboard.pts")}
                   </p>
                 </div>
               </div>

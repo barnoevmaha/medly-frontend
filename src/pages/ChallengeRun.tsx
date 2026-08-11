@@ -12,6 +12,7 @@ import { ErrorState, LoadingState } from "@/components/ui/states";
 import { Icon } from "@/components/ui/icon";
 import { FilmViewer } from "@/components/imaging/FilmViewer";
 import { useSession } from "@/lib/session";
+import { useLanguage } from "@/lib/i18n";
 import { api, type AnswerResult, type ChallengeDetail } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
@@ -27,6 +28,7 @@ export default function ChallengeRun() {
   const navigate = useNavigate();
   const toast = useToast();
   const { refresh } = useSession();
+  const { t, lang } = useLanguage();
 
   const [challenge, setChallenge] = useState<ChallengeDetail | null>(null);
   const [index, setIndex] = useState(0);
@@ -49,15 +51,15 @@ export default function ChallengeRun() {
       setFinished(firstUnanswered === -1 && detail.questions.length > 0);
       setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not open this challenge");
+      setError(e instanceof Error ? e.message : t("challenges.openError"));
     } finally {
       setLoading(false);
     }
-  }, [slug]);
+  }, [slug, t]);
 
   useEffect(() => {
     void load();
-  }, [load]);
+  }, [load, lang]);
 
   const question = challenge?.questions[index];
 
@@ -115,14 +117,14 @@ export default function ChallengeRun() {
         ),
       });
       if (outcome.points_awarded > 0) {
-        toast(`Correct — +${outcome.points_awarded} points`);
+        toast(t("run.correctPoints", { n: outcome.points_awarded }));
       } else if (outcome.already_answered) {
-        toast("You have already answered this one — no points this time", "info");
+        toast(t("run.alreadyAnsweredToast"), "info");
       }
-      outcome.new_badges.forEach((badge) => toast(`Badge unlocked — ${badge}`, "success"));
+      outcome.new_badges.forEach((badge) => toast(t("run.badgeUnlocked", { badge }), "success"));
       await refresh();
     } catch (e) {
-      toast(e instanceof Error ? e.message : "Could not submit that answer", "error");
+      toast(e instanceof Error ? e.message : t("run.submitError"), "error");
     } finally {
       setBusy(false);
     }
@@ -139,12 +141,12 @@ export default function ChallengeRun() {
     }
   }
 
-  if (loading) return <LoadingState label="Opening challenge…" />;
+  if (loading) return <LoadingState label={t("run.opening")} />;
 
   if (error || !challenge) {
     return (
       <ErrorState
-        title="Could not open this challenge"
+        title={t("challenges.openError")}
         message={error ?? undefined}
         onRetry={() => void load()}
       />
@@ -165,7 +167,7 @@ export default function ChallengeRun() {
           className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
-          Challenges
+          {t("nav.challenges")}
         </Link>
 
         <Card className="p-8 text-center shadow-medium">
@@ -175,7 +177,7 @@ export default function ChallengeRun() {
           <h1 className="mt-4 font-display text-2xl font-bold">{challenge.title}</h1>
           <Badge className="mt-3" variant="success">
             <Trophy className="h-3 w-3" />
-            Challenge complete
+            {t("run.complete")}
           </Badge>
 
           <div className="mt-8 grid grid-cols-3 gap-4">
@@ -183,26 +185,23 @@ export default function ChallengeRun() {
               <div className="font-display text-3xl font-bold text-primary">
                 {correct}/{challenge.question_count}
               </div>
-              <div className="mt-1 text-sm text-muted-foreground">Correct</div>
+              <div className="mt-1 text-sm text-muted-foreground">{t("run.correctLabel")}</div>
             </div>
             <div>
               <div className="font-display text-3xl font-bold text-success">
                 {challenge.earned_points}
               </div>
-              <div className="mt-1 text-sm text-muted-foreground">Points earned</div>
+              <div className="mt-1 text-sm text-muted-foreground">{t("run.pointsEarned")}</div>
             </div>
             <div>
               <div className="font-display text-3xl font-bold text-accent">
                 {Math.round((correct / Math.max(1, challenge.question_count)) * 100)}%
               </div>
-              <div className="mt-1 text-sm text-muted-foreground">Accuracy</div>
+              <div className="mt-1 text-sm text-muted-foreground">{t("run.accuracy")}</div>
             </div>
           </div>
 
-          <p className="mt-6 text-sm text-muted-foreground">
-            Points are awarded once per question, so reviewing your answers will not change
-            your score.
-          </p>
+          <p className="mt-6 text-sm text-muted-foreground">{t("run.reviewHint")}</p>
 
           <div className="mt-8 flex flex-wrap justify-center gap-3">
             <Button
@@ -211,13 +210,13 @@ export default function ChallengeRun() {
                 setIndex(0);
               }}
             >
-              Review answers
+              {t("challenges.reviewAnswers")}
             </Button>
             <Link to="/leaderboard">
-              <Button variant="outline">See the leaderboard</Button>
+              <Button variant="outline">{t("run.seeLeaderboard")}</Button>
             </Link>
             <Button variant="ghost" onClick={() => navigate("/challenges")}>
-              More challenges
+              {t("run.moreChallenges")}
             </Button>
           </div>
         </Card>
@@ -232,7 +231,7 @@ export default function ChallengeRun() {
         className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
-        Challenges
+        {t("nav.challenges")}
       </Link>
 
       <Card className="mb-6 p-6">
@@ -243,23 +242,23 @@ export default function ChallengeRun() {
               {challenge.title}
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">{challenge.description}</p>
-            <p className="mt-2 text-xs text-muted-foreground">Topic: {challenge.topic}</p>
+            <p className="mt-2 text-xs text-muted-foreground">
+              {t("run.topicLabel", { topic: challenge.topic })}
+            </p>
           </div>
           <div className="text-right">
             <div className="font-display text-2xl font-bold text-success">
               {challenge.earned_points}
             </div>
-            <div className="text-xs text-muted-foreground">points earned</div>
+            <div className="text-xs text-muted-foreground">{t("run.pointsEarned")}</div>
           </div>
         </div>
 
         <div className="mt-5">
           <Progress value={progress} />
           <div className="mt-2 flex items-center justify-between text-sm text-muted-foreground">
-            <span>
-              Question {index + 1} of {challenge.question_count}
-            </span>
-            <span>{answered} answered</span>
+            <span>{t("run.questionProgress", { n: index + 1, total: challenge.question_count })}</span>
+            <span>{t("run.answeredCount", { n: answered })}</span>
           </div>
         </div>
       </Card>
@@ -267,8 +266,10 @@ export default function ChallengeRun() {
       {question && (
         <Card className="p-6 md:p-8">
           <div className="flex items-center gap-2">
-            <Badge variant="muted">Question {index + 1}</Badge>
-            <Badge variant="solid">{question.points} pts</Badge>
+            <Badge variant="muted">{t("run.questionBadge", { n: index + 1 })}</Badge>
+            <Badge variant="solid">
+              {question.points} {t("dashboard.pts")}
+            </Badge>
           </div>
 
           <h2 className="mt-4 font-display text-xl font-bold leading-snug">{question.prompt}</h2>
@@ -339,22 +340,23 @@ export default function ChallengeRun() {
                 {result.correct ? (
                   <Badge variant="success">
                     <CheckCircle2 className="h-3 w-3" />
-                    Correct
+                    {t("run.correctLabel")}
                   </Badge>
                 ) : (
                   <Badge variant="warning">
                     <XCircle className="h-3 w-3" />
-                    Not quite
+                    {t("run.notQuite")}
                   </Badge>
                 )}
                 {result.points_awarded > 0 && (
                   <Badge variant="solid">
-                    <Sparkles className="h-3 w-3" />+{result.points_awarded} points
+                    <Sparkles className="h-3 w-3" />
+                    {t("run.pointsAwarded", { n: result.points_awarded })}
                   </Badge>
                 )}
                 {result.already_answered && (
                   <span className="text-xs text-muted-foreground">
-                    Already answered — no points awarded again
+                    {t("run.alreadyAnsweredInline")}
                   </span>
                 )}
               </div>
@@ -372,18 +374,18 @@ export default function ChallengeRun() {
               }}
             >
               <ArrowLeft className="h-4 w-4" />
-              Previous
+              {t("common.previous")}
             </Button>
 
             {result ? (
               <Button onClick={next}>
-                {index + 1 < challenge.questions.length ? "Next question" : "Finish"}
+                {index + 1 < challenge.questions.length ? t("run.nextQuestion") : t("run.finish")}
                 <ArrowRight className="h-4 w-4" />
               </Button>
             ) : (
               <Button onClick={() => void submit()} disabled={selected === null || busy}>
                 {busy && <Loader2 className="h-4 w-4 animate-spin" />}
-                Submit answer
+                {t("run.submitAnswer")}
               </Button>
             )}
           </div>

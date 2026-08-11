@@ -23,21 +23,21 @@ import { cn } from "@/lib/utils";
 
 type TabKey = "overview" | "badges" | "communities" | "activity";
 
-function relative(iso: string): string {
-  const minutes = Math.max(1, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
-  if (minutes < 60) return `${minutes} min ago`;
-  const hours = Math.round(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.round(hours / 24);
-  return `${days} day${days === 1 ? "" : "s"} ago`;
-}
-
 export default function Profile() {
   // The tab lives in the URL so the Dashboard can link straight to the badges
   // section rather than dropping the user on a generic profile page.
   const [params, setParams] = useSearchParams();
   const tab = (params.get("tab") as TabKey) ?? "overview";
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
+
+  function relative(iso: string): string {
+    const minutes = Math.max(1, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+    if (minutes < 60) return t("common.minAgo", { n: minutes });
+    const hours = Math.round(minutes / 60);
+    if (hours < 24) return t("common.hoursAgo", { n: hours });
+    const days = Math.round(hours / 24);
+    return t("common.daysAgo", { n: days });
+  }
 
   const TABS: Array<{ key: TabKey; label: string }> = [
     { key: "overview", label: t("profile.overview") },
@@ -68,7 +68,7 @@ export default function Profile() {
       setActivity(recent);
       setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not load your profile");
+      setError(e instanceof Error ? e.message : t("profile.loadError"));
     } finally {
       setLoading(false);
     }
@@ -76,7 +76,7 @@ export default function Profile() {
 
   useEffect(() => {
     void load();
-  }, []);
+  }, [lang]);
 
   const stats = useMemo(
     () => [
@@ -84,31 +84,31 @@ export default function Profile() {
         value: profile ? `#${profile.rank}` : "—",
         label: t("profile.globalRank"),
         to: "/leaderboard",
-        hint: "Open the leaderboard",
+        hint: t("profile.openLeaderboardHint"),
       },
       {
         value: profile ? profile.points.toLocaleString() : "—",
         label: t("profile.totalPoints"),
         to: "/leaderboard",
-        hint: "Open the leaderboard",
+        hint: t("profile.openLeaderboardHint"),
       },
       {
         value: profile ? String(profile.badge_count) : "—",
         label: t("profile.badgesEarned"),
         to: "/profile?tab=badges",
-        hint: "View badges",
+        hint: t("profile.viewBadgesHint"),
       },
       {
         value: profile ? String(profile.community_count) : "—",
         label: t("profile.communities"),
         to: "/profile?tab=communities",
-        hint: "View your communities",
+        hint: t("profile.viewCommunitiesHint"),
       },
     ],
     [profile, t]
   );
 
-  if (loading) return <LoadingState label="Loading profile…" />;
+  if (loading) return <LoadingState label={t("profile.loading")} />;
   if (error || !profile) {
     return <ErrorState message={error ?? undefined} onRetry={() => void load()} />;
   }
@@ -129,7 +129,7 @@ export default function Profile() {
               {profile.is_premium && (
                 <Badge variant="accent">
                   <Crown className="h-3 w-3" />
-                  Premium
+                  {t("common.premium")}
                 </Badge>
               )}
               {profile.role !== "student" && <Badge variant="info">{profile.role}</Badge>}
@@ -137,7 +137,9 @@ export default function Profile() {
             <p className="mt-0.5 text-muted-foreground">{profile.handle}</p>
             <p className="mt-1 text-sm text-muted-foreground">
               {profile.institution || "Medly"}
-              {profile.year_of_study ? ` · Year ${profile.year_of_study}` : ""}
+              {profile.year_of_study
+                ? ` · ${t("profile.yearLabel", { n: profile.year_of_study })}`
+                : ""}
             </p>
           </div>
 
@@ -145,7 +147,7 @@ export default function Profile() {
             <Link to="/leaderboard">
               <Button variant="outline">
                 <Trophy className="h-4 w-4" />
-                Rank
+                {t("profile.rank")}
               </Button>
             </Link>
             {!profile.is_premium && <PremiumButton />}
@@ -200,7 +202,7 @@ export default function Profile() {
               <div className="flex justify-between">
                 <dt className="text-muted-foreground">{t("profile.currentStreak")}</dt>
                 <dd className="font-semibold">
-                  {profile.streak_days} day{profile.streak_days === 1 ? "" : "s"}
+                  {t("profile.streakDaysCount", { n: profile.streak_days })}
                 </dd>
               </div>
             </dl>
@@ -244,7 +246,10 @@ export default function Profile() {
           <div className="mb-4 flex items-center justify-between">
             <h2 className="font-display text-2xl font-bold">{t("profile.badges")}</h2>
             <span className="text-sm text-muted-foreground">
-              {badges.filter((badge) => badge.earned).length} of {badges.length} earned
+              {t("profile.badgesEarnedOf", {
+                earned: badges.filter((badge) => badge.earned).length,
+                total: badges.length,
+              })}
             </span>
           </div>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
@@ -266,7 +271,7 @@ export default function Profile() {
                 <div className="mt-2 text-sm font-semibold">{badge.label}</div>
                 <div className="mt-1 text-xs text-muted-foreground">
                   {badge.earned && badge.earned_at
-                    ? `Earned ${new Date(badge.earned_at).toLocaleDateString()}`
+                    ? t("profile.earnedOn", { date: new Date(badge.earned_at).toLocaleDateString(lang) })
                     : badge.hint}
                 </div>
               </Card>
@@ -276,10 +281,7 @@ export default function Profile() {
             <Card className="mt-4 p-5">
               <div className="flex items-start gap-3">
                 <Lock className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" />
-                <p className="text-sm text-muted-foreground">
-                  Badges unlock from real activity — finishing a lesson, answering challenge
-                  questions, saving material, joining communities.
-                </p>
+                <p className="text-sm text-muted-foreground">{t("profile.badgesHint2")}</p>
               </div>
             </Card>
           )}
@@ -363,7 +365,7 @@ export default function Profile() {
                   {row.points ? (
                     <Badge variant="success">+{row.points}</Badge>
                   ) : (
-                    <Badge variant="muted">done</Badge>
+                    <Badge variant="muted">{t("common.done")}</Badge>
                   )}
                 </div>
               ))}

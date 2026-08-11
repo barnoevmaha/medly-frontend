@@ -47,7 +47,7 @@ const TYPE_ICON: Record<SavedType, typeof BookOpen> = {
  */
 export default function Library() {
   const toast = useToast();
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const [params, setParams] = useSearchParams();
   const tab = (params.get("tab") as TabKey) ?? "video";
 
@@ -60,6 +60,11 @@ export default function Library() {
     video: t("common.watch"),
     book: t("common.read"),
     pdf: t("common.read"),
+  };
+  const LEVEL_LABEL: Record<string, string> = {
+    foundation: t("library.levelFoundation"),
+    clinical: t("library.levelClinical"),
+    advanced: t("library.levelAdvanced"),
   };
 
   const [resources, setResources] = useState<LibraryResource[]>([]);
@@ -87,15 +92,15 @@ export default function Library() {
       setCounts(savedCounts);
       setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not load the library");
+      setError(e instanceof Error ? e.message : t("library.loadError"));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void load();
-  }, [load]);
+  }, [load, lang]);
 
   const topics = useMemo(
     () => Array.from(new Set(resources.map((r) => r.topic).filter(Boolean))).sort(),
@@ -165,13 +170,13 @@ export default function Library() {
     try {
       if (next) await api.save(resource.kind, resource.slug);
       else await api.unsave(resource.kind, resource.slug);
-      toast(next ? "Saved — still in the Library" : "Removed from Saved");
+      toast(next ? t("library.savedToast") : t("common.removedFromSaved"));
       await refreshSaved();
     } catch (e) {
       setResources((current) =>
         current.map((item) => (item.id === resource.id ? { ...item, saved: !next } : item))
       );
-      toast(e instanceof Error ? e.message : "Could not save that", "error");
+      toast(e instanceof Error ? e.message : t("common.couldNotSave"), "error");
     }
   }
 
@@ -179,13 +184,13 @@ export default function Library() {
     setSaved((current) => current.filter((item) => item.id !== entry.id));
     try {
       await api.unsave(entry.item_type, entry.item_key);
-      toast("Removed from Saved");
+      toast(t("common.removedFromSaved"));
       setResources((current) =>
         current.map((item) => (item.slug === entry.item_key ? { ...item, saved: false } : item))
       );
       setCounts(await api.savedCounts());
     } catch (e) {
-      toast(e instanceof Error ? e.message : "Could not remove that", "error");
+      toast(e instanceof Error ? e.message : t("library.removeError"), "error");
       void load();
     }
   }
@@ -267,7 +272,7 @@ export default function Library() {
                       : "border-border text-muted-foreground hover:bg-muted"
                   )}
                 >
-                  {value}
+                  {LEVEL_LABEL[value] ?? value}
                 </button>
               ))}
             </div>
@@ -324,15 +329,15 @@ export default function Library() {
           {needle && (
             <Badge variant="muted">
               “{query.trim()}”
-              <button onClick={() => setQuery("")} aria-label="Clear search">
+              <button onClick={() => setQuery("")} aria-label={t("common.clearSearch")}>
                 <X className="h-3 w-3" />
               </button>
             </Badge>
           )}
           {level && (
             <Badge variant="muted">
-              <span className="capitalize">{level}</span>
-              <button onClick={() => setLevel(null)} aria-label={`Remove ${level} filter`}>
+              <span className="capitalize">{LEVEL_LABEL[level] ?? level}</span>
+              <button onClick={() => setLevel(null)} aria-label={t("library.removeFilterAria", { value: level })}>
                 <X className="h-3 w-3" />
               </button>
             </Badge>
@@ -340,7 +345,7 @@ export default function Library() {
           {topic && (
             <Badge variant="muted">
               {topic}
-              <button onClick={() => setTopic(null)} aria-label={`Remove ${topic} filter`}>
+              <button onClick={() => setTopic(null)} aria-label={t("library.removeFilterAria", { value: topic })}>
                 <X className="h-3 w-3" />
               </button>
             </Badge>
@@ -348,7 +353,7 @@ export default function Library() {
           {year && (
             <Badge variant="muted">
               {year}+
-              <button onClick={() => setYear(null)} aria-label={`Remove ${year} filter`}>
+              <button onClick={() => setYear(null)} aria-label={t("library.removeFilterAria", { value: year })}>
                 <X className="h-3 w-3" />
               </button>
             </Badge>
@@ -360,7 +365,7 @@ export default function Library() {
       <div
         className="mb-6 flex gap-2 overflow-x-auto pb-1 scrollbar-hide"
         role="tablist"
-        aria-label="Library sections"
+        aria-label={t("library.sectionsAria")}
       >
         {TABS.map(({ key, label, icon: Icon }) => (
           <button
@@ -443,7 +448,7 @@ export default function Library() {
                         size="sm"
                         variant="outline"
                         onClick={() => void removeSaved(entry)}
-                        aria-label={`Remove ${entry.title} from Saved`}
+                        aria-label={t("library.removeSavedAria", { title: entry.title })}
                       >
                         <Trash2 className="h-4 w-4" aria-hidden="true" />
                         {t("common.remove")}
@@ -490,13 +495,13 @@ export default function Library() {
                 <div className="flex flex-wrap items-center gap-2">
                   {resource.level && (
                     <Badge variant="muted" className="capitalize">
-                      {resource.level}
+                      {LEVEL_LABEL[resource.level] ?? resource.level}
                     </Badge>
                   )}
                   {resource.premium && (
                     <Badge variant="accent">
                       <Crown className="h-3 w-3" aria-hidden="true" />
-                      Premium
+                      {t("common.premium")}
                     </Badge>
                   )}
                 </div>
@@ -514,7 +519,7 @@ export default function Library() {
                   </span>
                   {resource.topic && <span>{resource.topic}</span>}
                   {resource.year ? <span>{resource.year}</span> : null}
-                  {resource.pages ? <span>{resource.pages} pages</span> : null}
+                  {resource.pages ? <span>{t("library.pagesCount", { n: resource.pages })}</span> : null}
                   {resource.duration ? <span>{resource.duration}</span> : null}
                 </div>
 
@@ -530,7 +535,11 @@ export default function Library() {
                     variant={resource.saved ? "outline" : "default"}
                     onClick={() => void toggleResource(resource)}
                     aria-pressed={resource.saved}
-                    aria-label={resource.saved ? "Remove from Saved" : `Save ${resource.title}`}
+                    aria-label={
+                      resource.saved
+                        ? t("library.removeFromSavedAria")
+                        : t("library.saveAria", { title: resource.title })
+                    }
                   >
                     <Bookmark
                       className={cn("h-4 w-4", resource.saved && "fill-current")}

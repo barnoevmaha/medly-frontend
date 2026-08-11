@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { ErrorState, LoadingState } from "@/components/ui/states";
+import { useLanguage } from "@/lib/i18n";
 import { api, type LibraryResource } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
@@ -34,6 +35,12 @@ function toEmbed(url: string): string {
 export default function Watch() {
   const { slug = "" } = useParams();
   const toast = useToast();
+  const { t, lang } = useLanguage();
+  const LEVEL_LABEL: Record<string, string> = {
+    foundation: t("library.levelFoundation"),
+    clinical: t("library.levelClinical"),
+    advanced: t("library.levelAdvanced"),
+  };
   const [resource, setResource] = useState<LibraryResource | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -45,7 +52,7 @@ export default function Watch() {
       setResource(list.find((item) => item.slug === slug) ?? null);
       setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not load this video");
+      setError(e instanceof Error ? e.message : t("watch.loadError"));
     } finally {
       setLoading(false);
     }
@@ -54,7 +61,7 @@ export default function Watch() {
   useEffect(() => {
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slug]);
+  }, [slug, lang]);
 
   async function toggleSave() {
     if (!resource) return;
@@ -63,20 +70,20 @@ export default function Watch() {
     try {
       if (next) await api.save("video", resource.slug);
       else await api.unsave("video", resource.slug);
-      toast(next ? "Saved" : "Removed from Saved");
+      toast(next ? t("common.saved") : t("common.removedFromSaved"));
     } catch (e) {
       setResource({ ...resource, saved: !next });
-      toast(e instanceof Error ? e.message : "Could not save that", "error");
+      toast(e instanceof Error ? e.message : t("common.couldNotSave"), "error");
     }
   }
 
-  if (loading) return <LoadingState label="Loading video…" />;
+  if (loading) return <LoadingState label={t("watch.loading")} />;
   if (error) return <ErrorState message={error} onRetry={() => void load()} />;
   if (!resource) {
     return (
       <ErrorState
-        title="Video not found"
-        message="That video is not in the library."
+        title={t("watch.notFoundTitle")}
+        message={t("watch.notFoundBody")}
         onRetry={() => void load()}
       />
     );
@@ -89,7 +96,7 @@ export default function Watch() {
         className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-        Library
+        {t("nav.library")}
       </Link>
 
       <Card className="overflow-hidden p-0 shadow-medium">
@@ -119,14 +126,14 @@ export default function Watch() {
                 className={cn("h-4 w-4", resource.saved && "fill-current")}
                 aria-hidden="true"
               />
-              {resource.saved ? "Saved" : "Save"}
+              {resource.saved ? t("common.saved") : t("common.save")}
             </Button>
           </div>
 
           <div className="mt-4 flex flex-wrap items-center gap-2">
             {resource.level && (
               <Badge variant="muted" className="capitalize">
-                {resource.level}
+                {LEVEL_LABEL[resource.level] ?? resource.level}
               </Badge>
             )}
             {resource.topic && <Badge variant="muted">{resource.topic}</Badge>}

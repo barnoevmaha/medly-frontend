@@ -1,4 +1,5 @@
 /* Thin typed client for the Medly API. */
+import { readLang } from "./i18n";
 
 /**
  * Resolution order, most specific first:
@@ -47,6 +48,12 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   }
   const token = getToken();
   if (token) headers.set("Authorization", `Bearer ${token}`);
+  // Every request carries the active display language, so the backend can
+  // return article/community/resource/challenge text already translated
+  // (and machine-translate + cache it on first request in a new language —
+  // see app/services/localize.py). Read fresh each call rather than passed
+  // in, so this file does not need to import the language React context.
+  headers.set("X-Medly-Lang", readLang());
 
   const response = await fetch(`${BASE}${path}`, { ...init, headers });
   if (response.status === 401) {

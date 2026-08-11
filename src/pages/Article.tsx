@@ -12,16 +12,18 @@ import { Avatar } from "@/components/ui/avatar";
 import { Cover } from "@/components/ui/cover";
 import { useToast } from "@/components/ui/toast";
 import { ErrorState, LoadingState } from "@/components/ui/states";
+import { useLanguage } from "@/lib/i18n";
 import { api, type ArticleDetail } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
-function relative(iso: string): string {
-  const minutes = Math.max(1, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
-  if (minutes < 60) return `${minutes} min ago`;
-  const hours = Math.round(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return new Date(iso).toLocaleDateString();
-}
+/* Tag values stay in English — they are the exact `tag` the API filters on —
+   and are only translated for display. */
+const TAG_KEY: Record<string, string> = {
+  "Medical News": "feed.tagMedicalNews",
+  "Study Tip": "feed.tagStudyTip",
+  "Upcoming Event": "feed.tagUpcomingEvent",
+  Sponsored: "feed.tagSponsored",
+};
 
 /**
  * The full article.
@@ -35,6 +37,18 @@ export default function Article() {
   const location = useLocation();
   const navigate = useNavigate();
   const toast = useToast();
+  const { t, lang } = useLanguage();
+
+  const relative = useCallback(
+    (iso: string): string => {
+      const minutes = Math.max(1, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+      if (minutes < 60) return t("common.minAgo", { n: minutes });
+      const hours = Math.round(minutes / 60);
+      if (hours < 24) return t("common.hoursAgo", { n: hours });
+      return new Date(iso).toLocaleDateString(lang);
+    },
+    [t, lang]
+  );
 
   const [article, setArticle] = useState<ArticleDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -51,15 +65,15 @@ export default function Article() {
       setArticle(await api.article(slug));
       setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not load this article");
+      setError(e instanceof Error ? e.message : t("article.loadError"));
     } finally {
       setLoading(false);
     }
-  }, [slug]);
+  }, [slug, t]);
 
   useEffect(() => {
     void load();
-  }, [load]);
+  }, [load, lang]);
 
   useEffect(() => {
     if (loading || !article) return;
@@ -79,10 +93,10 @@ export default function Article() {
     try {
       if (next) await api.save("article", article.slug);
       else await api.unsave("article", article.slug);
-      toast(next ? "Saved to your collection" : "Removed from Saved");
+      toast(next ? t("common.savedToCollection") : t("common.removedFromSaved"));
     } catch (e) {
       setArticle({ ...article, saved: !next });
-      toast(e instanceof Error ? e.message : "Could not save that", "error");
+      toast(e instanceof Error ? e.message : t("common.couldNotSave"), "error");
     }
   }
 
@@ -92,7 +106,7 @@ export default function Article() {
       const updated = await api.toggleLike(article.slug);
       setArticle({ ...article, liked: updated.liked, like_count: updated.like_count });
     } catch (e) {
-      toast(e instanceof Error ? e.message : "Could not register that", "error");
+      toast(e instanceof Error ? e.message : t("article.registerError"), "error");
     }
   }
 
@@ -101,9 +115,9 @@ export default function Article() {
     const url = `${window.location.origin}/feed/${article.slug}`;
     try {
       await navigator.clipboard.writeText(url);
-      toast("Link copied to clipboard");
+      toast(t("common.linkCopied"));
     } catch {
-      window.prompt("Copy this link", url);
+      window.prompt(t("common.copyThisLink"), url);
     }
   }
 
@@ -119,9 +133,9 @@ export default function Article() {
         comment_count: article.comment_count + 1,
       });
       setDraft("");
-      toast("Comment posted");
+      toast(t("article.commentPosted"));
     } catch (e) {
-      toast(e instanceof Error ? e.message : "Could not post that comment", "error");
+      toast(e instanceof Error ? e.message : t("article.commentPostError"), "error");
     } finally {
       setPosting(false);
     }
@@ -136,18 +150,18 @@ export default function Article() {
         comments: article.comments.filter((comment) => comment.id !== id),
         comment_count: Math.max(0, article.comment_count - 1),
       });
-      toast("Comment deleted");
+      toast(t("article.commentDeleted"));
     } catch (e) {
-      toast(e instanceof Error ? e.message : "Could not delete that comment", "error");
+      toast(e instanceof Error ? e.message : t("article.commentDeleteError"), "error");
     }
   }
 
-  if (loading) return <LoadingState label="Loading article…" />;
+  if (loading) return <LoadingState label={t("article.loading")} />;
 
   if (error || !article) {
     return (
       <ErrorState
-        title="Could not load this article"
+        title={t("article.loadError")}
         message={error ?? undefined}
         onRetry={() => void load()}
       />
@@ -161,7 +175,7 @@ export default function Article() {
         className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
-        Back
+        {t("common.back")}
       </button>
 
       <Card className="overflow-hidden p-0 shadow-medium">
@@ -174,10 +188,12 @@ export default function Article() {
         />
         <div className="p-6 md:p-10">
         <div className="flex flex-wrap items-center gap-3 text-sm">
-          <Badge variant={article.tag === "Sponsored" ? "muted" : "default"}>{article.tag}</Badge>
+          <Badge variant={article.tag === "Sponsored" ? "muted" : "default"}>
+            {t(TAG_KEY[article.tag] ?? article.tag)}
+          </Badge>
           <span className="flex items-center gap-1.5 text-muted-foreground">
             <Clock className="h-4 w-4" />
-            {article.read_minutes} min read
+            {t("article.minRead", { n: article.read_minutes })}
           </span>
           <span className="text-muted-foreground">{relative(article.published_at)}</span>
         </div>
@@ -212,7 +228,7 @@ export default function Article() {
             </Button>
             <Button size="sm" variant="outline" onClick={() => void share()}>
               <Share2 className="h-4 w-4" />
-              Share
+              {t("article.share")}
             </Button>
             <Button
               size="sm"
@@ -220,7 +236,7 @@ export default function Article() {
               onClick={() => void toggleSave()}
             >
               <Bookmark className={cn("h-4 w-4", article.saved && "fill-current")} />
-              {article.saved ? "Saved" : "Save"}
+              {article.saved ? t("common.saved") : t("common.save")}
             </Button>
           </div>
         </div>
@@ -235,7 +251,7 @@ export default function Article() {
       <div ref={commentsRef} id="comments" className="mt-8 scroll-mt-6">
         <h2 className="mb-4 flex items-center gap-2 font-display text-2xl font-bold">
           <MessageCircle className="h-5 w-5 text-primary" />
-          Comments
+          {t("article.comments")}
           <span className="text-base font-medium text-muted-foreground">
             ({article.comments.length})
           </span>
@@ -248,16 +264,14 @@ export default function Article() {
               rows={3}
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
-              placeholder="Add to the discussion…"
-              aria-label="Write a comment"
+              placeholder={t("article.commentPlaceholder")}
+              aria-label={t("article.writeCommentAria")}
             />
             <div className="mt-3 flex items-center justify-between gap-3">
-              <p className="text-xs text-muted-foreground">
-                Posted under your name and visible to other students.
-              </p>
+              <p className="text-xs text-muted-foreground">{t("article.commentHint")}</p>
               <Button type="submit" disabled={posting || !draft.trim()}>
                 {posting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                Post comment
+                {t("article.postComment")}
               </Button>
             </div>
           </form>
@@ -266,9 +280,7 @@ export default function Article() {
         <div className="mt-4 space-y-3">
           {article.comments.length === 0 && (
             <Card className="p-8 text-center">
-              <p className="text-sm text-muted-foreground">
-                No comments yet. Be the first to add one.
-              </p>
+              <p className="text-sm text-muted-foreground">{t("article.noComments")}</p>
             </Card>
           )}
           {article.comments.map((comment) => (
@@ -291,7 +303,7 @@ export default function Article() {
                   <button
                     onClick={() => void removeComment(comment.id)}
                     className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-destructive"
-                    aria-label="Delete comment"
+                    aria-label={t("article.deleteCommentAria")}
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
@@ -304,7 +316,7 @@ export default function Article() {
 
       <div className="mt-8 text-center">
         <Link to="/dashboard">
-          <Button variant="outline">Back to your feed</Button>
+          <Button variant="outline">{t("article.backToFeed")}</Button>
         </Link>
       </div>
     </article>

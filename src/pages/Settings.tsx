@@ -12,7 +12,7 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { useToast } from "@/components/ui/toast";
 import { LoadingState } from "@/components/ui/states";
 import { useSession } from "@/lib/session";
-import { LANGUAGES, useLanguage, type Lang } from "@/lib/i18n";
+import { LANGUAGES, translateFor, useLanguage, type Lang } from "@/lib/i18n";
 import {
   readPreferences,
   writePreferences,
@@ -123,9 +123,9 @@ export default function Settings() {
         year_of_study: account.year_of_study ? Number(account.year_of_study) : undefined,
       });
       await refresh();
-      toast("Account details saved");
+      toast(t("settings.accountSaved"));
     } catch (e) {
-      toast(e instanceof Error ? e.message : "Could not save your details", "error");
+      toast(e instanceof Error ? e.message : t("settings.accountSaveError"), "error");
     } finally {
       setSavingAccount(false);
     }
@@ -134,16 +134,16 @@ export default function Settings() {
   async function savePassword(event: React.FormEvent) {
     event.preventDefault();
     if (passwords.next !== passwords.confirm) {
-      toast("The two new passwords do not match", "error");
+      toast(t("settings.passwordMismatch"), "error");
       return;
     }
     setSavingPassword(true);
     try {
       await api.changePassword(passwords.current, passwords.next);
       setPasswords({ current: "", next: "", confirm: "" });
-      toast("Password changed");
+      toast(t("settings.passwordChanged"));
     } catch (e) {
-      toast(e instanceof Error ? e.message : "Could not change your password", "error");
+      toast(e instanceof Error ? e.message : t("settings.passwordChangeError"), "error");
     } finally {
       setSavingPassword(false);
     }
@@ -154,9 +154,9 @@ export default function Settings() {
     try {
       await api.updateMe({ show_on_leaderboard: value });
       await refresh();
-      toast(value ? "You appear on the leaderboard" : "You are hidden from the leaderboard");
+      toast(value ? t("settings.leaderboardShown") : t("settings.leaderboardHidden"));
     } catch (e) {
-      toast(e instanceof Error ? e.message : "Could not update that", "error");
+      toast(e instanceof Error ? e.message : t("settings.privacyUpdateError"), "error");
     } finally {
       setBusyPrivacy(false);
     }
@@ -166,9 +166,9 @@ export default function Settings() {
     setClearing(true);
     try {
       await api.clearAssistantHistory();
-      toast("Assistant history deleted");
+      toast(t("settings.historyDeleted"));
     } catch (e) {
-      toast(e instanceof Error ? e.message : "Could not clear your history", "error");
+      toast(e instanceof Error ? e.message : t("settings.historyDeleteError"), "error");
     } finally {
       setClearing(false);
     }
@@ -176,10 +176,13 @@ export default function Settings() {
 
   function changeLanguage(next: Lang) {
     setLang(next);
-    toast("Language updated");
+    // `t` still reflects the outgoing language until this component
+    // re-renders, so the confirmation toast is resolved directly against
+    // the language just chosen instead.
+    toast(translateFor(next, "settings.languageUpdated"));
   }
 
-  if (!me) return <LoadingState label="Loading settings…" />;
+  if (!me) return <LoadingState label={t("settings.loading")} />;
 
   const THEMES: Array<{ value: Theme; label: string; icon: typeof Sun }> = [
     { value: "light", label: t("settings.light"), icon: Sun },
@@ -213,7 +216,7 @@ export default function Settings() {
             className="mt-1.5"
             value={account.institution}
             onChange={(event) => setAccount({ ...account, institution: event.target.value })}
-            placeholder="e.g. Columbia University"
+            placeholder={t("settings.institutionPlaceholder")}
           />
         </label>
         <label className="block">
@@ -225,7 +228,7 @@ export default function Settings() {
             max={10}
             value={account.year_of_study}
             onChange={(event) => setAccount({ ...account, year_of_study: event.target.value })}
-            placeholder="e.g. 3"
+            placeholder={t("settings.yearPlaceholder")}
           />
         </label>
 
@@ -237,7 +240,7 @@ export default function Settings() {
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <span className="text-muted-foreground">{t("settings.role")}</span>
             <Badge variant="info">{me.role}</Badge>
-            {me.is_premium && <Badge variant="accent">Premium</Badge>}
+            {me.is_premium && <Badge variant="accent">{t("common.premium")}</Badge>}
           </div>
           <p className="mt-2 text-xs text-muted-foreground">{t("settings.uneditableHint")}</p>
         </div>
@@ -412,7 +415,7 @@ export default function Settings() {
         {/* ---------------- category list ---------------- */}
         <nav
           className="flex gap-2 overflow-x-auto pb-1 lg:flex-col lg:overflow-visible lg:pb-0"
-          aria-label="Settings sections"
+          aria-label={t("settings.sectionsAria")}
         >
           {SECTIONS.map(({ key, label, icon: Icon }) => (
             <button

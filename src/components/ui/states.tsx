@@ -2,15 +2,17 @@ import type { ReactNode } from "react";
 import { AlertTriangle, Loader2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { useLanguage } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 /** One implementation of loading / empty / error, so every page behaves the same. */
 
-export function LoadingState({ label = "Loading…" }: { label?: string }) {
+export function LoadingState({ label }: { label?: string }) {
+  const { t } = useLanguage();
   return (
     <div className="flex items-center gap-2 py-20 text-muted-foreground" role="status">
       <Loader2 className="h-4 w-4 animate-spin" />
-      {label}
+      {label ?? t("common.loading")}
     </div>
   );
 }
@@ -48,7 +50,7 @@ export function EmptyState({
 }
 
 export function ErrorState({
-  title = "Something went wrong",
+  title,
   message,
   onRetry,
 }: {
@@ -56,16 +58,17 @@ export function ErrorState({
   message?: string;
   onRetry?: () => void;
 }) {
+  const { t } = useLanguage();
   return (
     <Card className="border-destructive/30 bg-destructive/5 p-6">
       <div className="flex items-start gap-3">
         <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
         <div>
-          <h3 className="font-display font-bold">{title}</h3>
+          <h3 className="font-display font-bold">{title ?? t("common.somethingWrong")}</h3>
           {message && <p className="mt-1 text-sm text-muted-foreground">{message}</p>}
           {onRetry && (
             <Button className="mt-4" size="sm" variant="outline" onClick={onRetry}>
-              Try again
+              {t("common.tryAgain")}
             </Button>
           )}
         </div>

@@ -25,6 +25,32 @@ export const LANGUAGES: Array<{ code: Lang; label: string; english: string }> = 
   { code: "uz", label: "Oʻzbek", english: "Uzbek" },
 ];
 
+// Some browsers ship ICU data that lists "uz" as a supported locale but has
+// no month names for it, so `toLocaleString("uz", { month: "short" })`
+// silently degrades to a garbled "M08 11" instead of "11-avg". Verified against
+// a real Chromium build, not a hypothetical. Formatting month/day/time by hand
+// for Uzbek sidesteps that gap entirely; Russian and English go through the
+// normal Intl formatter, which renders those correctly.
+const UZ_MONTHS_SHORT = [
+  "yan", "fev", "mar", "apr", "may", "iyn", "iyl", "avg", "sen", "okt", "noy", "dek",
+];
+
+/** A short "11 Aug, 14:05"-style timestamp, safe across all three languages. */
+export function formatDateTime(iso: string, lang: Lang): string {
+  const date = new Date(iso);
+  if (lang === "uz") {
+    const hh = String(date.getHours()).padStart(2, "0");
+    const mm = String(date.getMinutes()).padStart(2, "0");
+    return `${date.getDate()}-${UZ_MONTHS_SHORT[date.getMonth()]}, ${hh}:${mm}`;
+  }
+  return date.toLocaleString(lang, {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 type Table = Record<string, string>;
 
 const STRINGS: Record<Lang, Table> = {
@@ -61,7 +87,7 @@ const STRINGS: Record<Lang, Table> = {
 
     // dashboard
     "dashboard.welcome": "Welcome back",
-    "dashboard.streakKeepGoing": "day streak — keep it going.",
+    "dashboard.streakKeepGoing": "{n}-day streak — keep it going.",
     "dashboard.streakStart": "Answer a question or finish a lesson to start a streak.",
     "dashboard.aiTraining": "AI Training",
     "dashboard.imagingWorkbench": "Imaging workbench",
@@ -230,6 +256,174 @@ const STRINGS: Record<Lang, Table> = {
     "settings.sessionDesc": "Sign out of this device",
     "settings.signOutHint": "Signing out clears the token stored in this browser. Your saved items, points and progress are on the server and will be waiting when you sign back in.",
     "settings.logOut": "Log out",
+    "settings.loading": "Loading settings…",
+    "settings.accountSaved": "Account details saved",
+    "settings.accountSaveError": "Could not save your details",
+    "settings.passwordMismatch": "The two new passwords do not match",
+    "settings.passwordChanged": "Password changed",
+    "settings.passwordChangeError": "Could not change your password",
+    "settings.leaderboardShown": "You appear on the leaderboard",
+    "settings.leaderboardHidden": "You are hidden from the leaderboard",
+    "settings.privacyUpdateError": "Could not update that",
+    "settings.historyDeleted": "Assistant history deleted",
+    "settings.historyDeleteError": "Could not clear your history",
+    "settings.languageUpdated": "Language updated",
+    "settings.institutionPlaceholder": "e.g. Columbia University",
+    "settings.yearPlaceholder": "e.g. 3",
+    "settings.sectionsAria": "Settings sections",
+
+    // common — additions
+    "common.you": "You",
+    "common.done": "done",
+    "common.previous": "Previous",
+    "common.back": "Back",
+    "common.premium": "Premium",
+    "common.freePlan": "Free",
+    "common.thatDidNotWork": "That did not work",
+    "common.couldNotSave": "Could not save that",
+    "common.savedToCollection": "Saved to your collection",
+    "common.removedFromSaved": "Removed from Saved",
+    "common.linkCopied": "Link copied to clipboard",
+    "common.copyThisLink": "Copy this link",
+    "common.clearSearch": "Clear search",
+    "common.minAgo": "{n} min ago",
+    "common.hoursAgo": "{n}h ago",
+    "common.daysAgo": "{n}d ago",
+
+    // dashboard — additions
+    "dashboard.loadError": "Could not load the dashboard",
+
+    // communities — additions
+    "communities.loadError": "Could not load communities",
+    "communities.joinedToast": "Joined {name}",
+    "communities.leftToast": "Left {name}",
+    "communities.createdToast": "{name} created",
+    "communities.createError": "Could not create that community",
+    "communities.descriptionLabel": "Description",
+    "communities.specialtyLabel": "Specialty",
+    "communities.noMatchQuery": "Nothing matches “{query}” in a community name or description.",
+    "communities.noMatchFilter": "Nothing here under this filter yet.",
+
+    // community room — additions
+    "room.loadError": "Could not open this community",
+    "room.sendError": "Message not sent",
+    "room.opening": "Opening community…",
+    "room.messageAria": "Message",
+
+    // challenges — additions
+    "challenges.loadError": "Could not load challenges",
+    "challenges.openError": "Could not open that challenge",
+    "challenges.noDeadline": "No deadline",
+    "challenges.closed": "Closed",
+    "challenges.hoursLeft": "{n}h left",
+    "challenges.daysHoursLeft": "{d}d {h}h left",
+    "challenges.answeredSummary": "{answered} of {total} answered · {pts} pts earned",
+    "challenges.difficultyEasy": "easy",
+    "challenges.difficultyMedium": "medium",
+    "challenges.difficultyHard": "hard",
+
+    // challenge run
+    "run.correctPoints": "Correct — +{n} points",
+    "run.alreadyAnsweredToast": "You have already answered this one — no points this time",
+    "run.badgeUnlocked": "Badge unlocked — {badge}",
+    "run.opening": "Opening challenge…",
+    "run.complete": "Challenge complete",
+    "run.correctLabel": "Correct",
+    "run.pointsEarned": "Points earned",
+    "run.accuracy": "Accuracy",
+    "run.reviewHint": "Points are awarded once per question, so reviewing your answers will not change your score.",
+    "run.seeLeaderboard": "See the leaderboard",
+    "run.moreChallenges": "More challenges",
+    "run.topicLabel": "Topic: {topic}",
+    "run.questionProgress": "Question {n} of {total}",
+    "run.answeredCount": "{n} answered",
+    "run.questionBadge": "Question {n}",
+    "run.notQuite": "Not quite",
+    "run.pointsAwarded": "+{n} points",
+    "run.alreadyAnsweredInline": "Already answered — no points awarded again",
+    "run.nextQuestion": "Next question",
+    "run.finish": "Finish",
+    "run.submitAnswer": "Submit answer",
+    "run.submitError": "Could not submit that answer",
+
+    // library — additions
+    "library.loadError": "Could not load the library",
+    "library.savedToast": "Saved — still in the Library",
+    "library.removeError": "Could not remove that",
+    "library.removeFilterAria": "Remove {value} filter",
+    "library.sectionsAria": "Library sections",
+    "library.pagesCount": "{n} pages",
+    "library.saveAria": "Save {title}",
+    "library.removeFromSavedAria": "Remove from Saved",
+    "library.removeSavedAria": "Remove {title} from Saved",
+    "library.levelFoundation": "foundation",
+    "library.levelClinical": "clinical",
+    "library.levelAdvanced": "advanced",
+
+    // article
+    "article.loadError": "Could not load this article",
+    "article.registerError": "Could not register that",
+    "article.commentPosted": "Comment posted",
+    "article.commentPostError": "Could not post that comment",
+    "article.commentDeleted": "Comment deleted",
+    "article.commentDeleteError": "Could not delete that comment",
+    "article.loading": "Loading article…",
+    "article.minRead": "{n} min read",
+    "article.share": "Share",
+    "article.comments": "Comments",
+    "article.commentPlaceholder": "Add to the discussion…",
+    "article.writeCommentAria": "Write a comment",
+    "article.commentHint": "Posted under your name and visible to other students.",
+    "article.postComment": "Post comment",
+    "article.noComments": "No comments yet. Be the first to add one.",
+    "article.deleteCommentAria": "Delete comment",
+    "article.backToFeed": "Back to your feed",
+
+    // read (books/PDFs)
+    "read.loadError": "Could not load this book",
+    "read.opening": "Opening book…",
+    "read.notFoundTitle": "Book not found",
+    "read.notFoundBody": "That title is not in the library.",
+    "read.openNewTab": "Open in new tab",
+    "read.blockedHint": "If the reader does not load, your browser is blocking the embedded document — use",
+
+    // watch (video)
+    "watch.loadError": "Could not load this video",
+    "watch.loading": "Loading video…",
+    "watch.notFoundTitle": "Video not found",
+    "watch.notFoundBody": "That video is not in the library.",
+
+    // feed
+    "feed.title": "Your Feed",
+    "feed.subtitle": "Medical news, study technique and events — searchable to the last word",
+    "feed.tagAll": "All",
+    "feed.tagMedicalNews": "Medical News",
+    "feed.tagStudyTip": "Study Tip",
+    "feed.tagUpcomingEvent": "Upcoming Event",
+    "feed.tagSponsored": "Sponsored",
+    "feed.loadError": "Could not load the feed",
+    "feed.searchPlaceholder": "Search articles and their content",
+    "feed.searchAria": "Search your feed",
+    "feed.searchHint": "Searches the full text of every article, not just the headline.",
+    "feed.readArticle": "Read article",
+    "feed.commentAria": "Comment on {title}",
+    "feed.copyLinkAria": "Copy link",
+    "feed.noMatch": "Nothing matches that search",
+    "feed.noMatchHint": "Try a different search term, or clear the search.",
+    "feed.noMatchQueryBody": "No article mentions “{query}”. Try a broader term — the search covers the full text of every article.",
+    "feed.noMatchFilterBody": "No articles under this filter yet.",
+
+    // profile — additions
+    "profile.loadError": "Could not load your profile",
+    "profile.loading": "Loading profile…",
+    "profile.yearLabel": "Year {n}",
+    "profile.badgesEarnedOf": "{earned} of {total} earned",
+    "profile.earnedOn": "Earned {date}",
+    "profile.badgesHint2": "Badges unlock from real activity — finishing a lesson, answering challenge questions, saving material, joining communities.",
+    "profile.openLeaderboardHint": "Open the leaderboard",
+    "profile.viewBadgesHint": "View badges",
+    "profile.viewCommunitiesHint": "View your communities",
+    "profile.streakDaysCount": "{n} days",
   },
 
   ru: {
@@ -262,7 +456,7 @@ const STRINGS: Record<Lang, Table> = {
     "common.somethingWrong": "Что-то пошло не так",
 
     "dashboard.welcome": "С возвращением",
-    "dashboard.streakKeepGoing": "дней подряд — продолжайте.",
+    "dashboard.streakKeepGoing": "{n} дней подряд — продолжайте в том же духе!",
     "dashboard.streakStart": "Ответьте на вопрос или завершите урок, чтобы начать серию.",
     "dashboard.aiTraining": "ИИ-тренинг",
     "dashboard.imagingWorkbench": "Лаборатория снимков",
@@ -339,7 +533,7 @@ const STRINGS: Record<Lang, Table> = {
     "room.startConversation": "Начните разговор — задайте вопрос или поделитесь случаем.",
     "room.messagePlaceholder": "Сообщение {name}…",
     "room.send": "Отправить",
-    "room.sendingJoins": "Отправка сообщения присоединяет вас к сообществу.",
+    "room.sendingJoins": "Как только вы отправите сообщение, вы автоматически вступите в сообщество.",
 
     "challenges.title": "Испытания и рейтинг",
     "challenges.subtitle": "Отвечайте правильно, зарабатывайте очки, поднимайтесь в рейтинге",
@@ -425,6 +619,174 @@ const STRINGS: Record<Lang, Table> = {
     "settings.sessionDesc": "Выйти с этого устройства",
     "settings.signOutHint": "Выход удаляет токен, сохранённый в этом браузере. Ваши материалы, очки и прогресс хранятся на сервере и будут ждать вас при следующем входе.",
     "settings.logOut": "Выйти",
+    "settings.loading": "Загружаем настройки…",
+    "settings.accountSaved": "Данные аккаунта сохранены",
+    "settings.accountSaveError": "Не удалось сохранить данные",
+    "settings.passwordMismatch": "Новые пароли не совпадают",
+    "settings.passwordChanged": "Пароль изменён",
+    "settings.passwordChangeError": "Не удалось изменить пароль",
+    "settings.leaderboardShown": "Вы отображаетесь в рейтинге",
+    "settings.leaderboardHidden": "Вы скрыты из рейтинга",
+    "settings.privacyUpdateError": "Не удалось это обновить",
+    "settings.historyDeleted": "История ассистента удалена",
+    "settings.historyDeleteError": "Не удалось очистить историю",
+    "settings.languageUpdated": "Язык обновлён",
+    "settings.institutionPlaceholder": "например, МГУ",
+    "settings.yearPlaceholder": "например, 3",
+    "settings.sectionsAria": "Разделы настроек",
+
+    // common — additions
+    "common.you": "Вы",
+    "common.done": "готово",
+    "common.previous": "Назад",
+    "common.back": "Назад",
+    "common.premium": "Премиум",
+    "common.freePlan": "Бесплатный",
+    "common.thatDidNotWork": "Не получилось",
+    "common.couldNotSave": "Не удалось сохранить",
+    "common.savedToCollection": "Сохранено в вашей коллекции",
+    "common.removedFromSaved": "Удалено из сохранённого",
+    "common.linkCopied": "Ссылка скопирована",
+    "common.copyThisLink": "Скопируйте эту ссылку",
+    "common.clearSearch": "Очистить поиск",
+    "common.minAgo": "{n} мин назад",
+    "common.hoursAgo": "{n} ч назад",
+    "common.daysAgo": "{n} дн назад",
+
+    // dashboard — additions
+    "dashboard.loadError": "Не удалось загрузить панель",
+
+    // communities — additions
+    "communities.loadError": "Не удалось загрузить сообщества",
+    "communities.joinedToast": "Вы вступили в «{name}»",
+    "communities.leftToast": "Вы покинули «{name}»",
+    "communities.createdToast": "Сообщество «{name}» создано",
+    "communities.createError": "Не удалось создать сообщество",
+    "communities.descriptionLabel": "Описание",
+    "communities.specialtyLabel": "Специальность",
+    "communities.noMatchQuery": "По запросу «{query}» ничего не найдено ни в названии, ни в описании.",
+    "communities.noMatchFilter": "По этому фильтру пока ничего нет.",
+
+    // community room — additions
+    "room.loadError": "Не удалось открыть это сообщество",
+    "room.sendError": "Сообщение не отправлено",
+    "room.opening": "Открываем сообщество…",
+    "room.messageAria": "Сообщение",
+
+    // challenges — additions
+    "challenges.loadError": "Не удалось загрузить испытания",
+    "challenges.openError": "Не удалось открыть это испытание",
+    "challenges.noDeadline": "Без срока",
+    "challenges.closed": "Завершено",
+    "challenges.hoursLeft": "осталось {n} ч",
+    "challenges.daysHoursLeft": "осталось {d} дн {h} ч",
+    "challenges.answeredSummary": "Отвечено {answered} из {total} · заработано {pts} очк.",
+    "challenges.difficultyEasy": "лёгкий",
+    "challenges.difficultyMedium": "средний",
+    "challenges.difficultyHard": "сложный",
+
+    // challenge run
+    "run.correctPoints": "Верно — +{n} очков",
+    "run.alreadyAnsweredToast": "Вы уже отвечали на этот вопрос — очки на этот раз не начисляются",
+    "run.badgeUnlocked": "Открыт значок — {badge}",
+    "run.opening": "Открываем испытание…",
+    "run.complete": "Испытание завершено",
+    "run.correctLabel": "Верно",
+    "run.pointsEarned": "Заработано очков",
+    "run.accuracy": "Точность",
+    "run.reviewHint": "Очки начисляются один раз за вопрос, поэтому просмотр ответов не изменит ваш результат.",
+    "run.seeLeaderboard": "Смотреть рейтинг",
+    "run.moreChallenges": "Другие испытания",
+    "run.topicLabel": "Тема: {topic}",
+    "run.questionProgress": "Вопрос {n} из {total}",
+    "run.answeredCount": "отвечено: {n}",
+    "run.questionBadge": "Вопрос {n}",
+    "run.notQuite": "Не совсем",
+    "run.pointsAwarded": "+{n} очков",
+    "run.alreadyAnsweredInline": "Уже отвечено — очки повторно не начисляются",
+    "run.nextQuestion": "Следующий вопрос",
+    "run.finish": "Завершить",
+    "run.submitAnswer": "Отправить ответ",
+    "run.submitError": "Не удалось отправить ответ",
+
+    // library — additions
+    "library.loadError": "Не удалось загрузить библиотеку",
+    "library.savedToast": "Сохранено — остаётся в Библиотеке",
+    "library.removeError": "Не удалось удалить",
+    "library.removeFilterAria": "Убрать фильтр «{value}»",
+    "library.sectionsAria": "Разделы библиотеки",
+    "library.pagesCount": "{n} стр.",
+    "library.saveAria": "Сохранить «{title}»",
+    "library.removeFromSavedAria": "Удалить из сохранённого",
+    "library.removeSavedAria": "Удалить «{title}» из сохранённого",
+    "library.levelFoundation": "базовый",
+    "library.levelClinical": "клинический",
+    "library.levelAdvanced": "продвинутый",
+
+    // article
+    "article.loadError": "Не удалось загрузить статью",
+    "article.registerError": "Не удалось это зарегистрировать",
+    "article.commentPosted": "Комментарий опубликован",
+    "article.commentPostError": "Не удалось опубликовать комментарий",
+    "article.commentDeleted": "Комментарий удалён",
+    "article.commentDeleteError": "Не удалось удалить комментарий",
+    "article.loading": "Загружаем статью…",
+    "article.minRead": "{n} мин чтения",
+    "article.share": "Поделиться",
+    "article.comments": "Комментарии",
+    "article.commentPlaceholder": "Добавить к обсуждению…",
+    "article.writeCommentAria": "Написать комментарий",
+    "article.commentHint": "Публикуется под вашим именем и видно другим студентам.",
+    "article.postComment": "Опубликовать комментарий",
+    "article.noComments": "Комментариев пока нет. Будьте первым.",
+    "article.deleteCommentAria": "Удалить комментарий",
+    "article.backToFeed": "Назад в вашу ленту",
+
+    // read (books/PDFs)
+    "read.loadError": "Не удалось загрузить книгу",
+    "read.opening": "Открываем книгу…",
+    "read.notFoundTitle": "Книга не найдена",
+    "read.notFoundBody": "Такого издания нет в библиотеке.",
+    "read.openNewTab": "Открыть в новой вкладке",
+    "read.blockedHint": "Если материал не открывается, браузер блокирует встроенный документ — используйте",
+
+    // watch (video)
+    "watch.loadError": "Не удалось загрузить видео",
+    "watch.loading": "Загружаем видео…",
+    "watch.notFoundTitle": "Видео не найдено",
+    "watch.notFoundBody": "Такого видео нет в библиотеке.",
+
+    // feed
+    "feed.title": "Ваша лента",
+    "feed.subtitle": "Новости медицины, техники обучения и события — с поиском по каждому слову",
+    "feed.tagAll": "Все",
+    "feed.tagMedicalNews": "Новости медицины",
+    "feed.tagStudyTip": "Совет по учёбе",
+    "feed.tagUpcomingEvent": "Ближайшее событие",
+    "feed.tagSponsored": "На правах рекламы",
+    "feed.loadError": "Не удалось загрузить ленту",
+    "feed.searchPlaceholder": "Искать по статьям и их содержанию",
+    "feed.searchAria": "Поиск по ленте",
+    "feed.searchHint": "Ищет по всему тексту каждой статьи, а не только по заголовку.",
+    "feed.readArticle": "Читать статью",
+    "feed.commentAria": "Комментировать «{title}»",
+    "feed.copyLinkAria": "Скопировать ссылку",
+    "feed.noMatch": "По этому запросу ничего не найдено",
+    "feed.noMatchHint": "Попробуйте другой запрос или очистите поиск.",
+    "feed.noMatchQueryBody": "Ни одна статья не содержит «{query}». Попробуйте более общий запрос — поиск охватывает полный текст каждой статьи.",
+    "feed.noMatchFilterBody": "По этому фильтру пока нет статей.",
+
+    // profile — additions
+    "profile.loadError": "Не удалось загрузить профиль",
+    "profile.loading": "Загружаем профиль…",
+    "profile.yearLabel": "{n} курс",
+    "profile.badgesEarnedOf": "Получено {earned} из {total}",
+    "profile.earnedOn": "Получено {date}",
+    "profile.badgesHint2": "Значки открываются за реальную активность — прохождение урока, ответы на вопросы испытаний, сохранение материалов, вступление в сообщества.",
+    "profile.openLeaderboardHint": "Открыть рейтинг",
+    "profile.viewBadgesHint": "Смотреть значки",
+    "profile.viewCommunitiesHint": "Смотреть ваши сообщества",
+    "profile.streakDaysCount": "{n} дн.",
   },
 
   uz: {
@@ -457,7 +819,7 @@ const STRINGS: Record<Lang, Table> = {
     "common.somethingWrong": "Nimadir xato ketdi",
 
     "dashboard.welcome": "Xush kelibsiz",
-    "dashboard.streakKeepGoing": "kunlik seriya — davom eting.",
+    "dashboard.streakKeepGoing": "{n}-kunlik seriya — davom eting.",
     "dashboard.streakStart": "Seriyani boshlash uchun savolga javob bering yoki darsni tugating.",
     "dashboard.aiTraining": "AI o‘qitish",
     "dashboard.imagingWorkbench": "Tasvir tahlili",
@@ -534,7 +896,7 @@ const STRINGS: Record<Lang, Table> = {
     "room.startConversation": "Suhbatni boshlang — savol bering yoki holat ulashing.",
     "room.messagePlaceholder": "{name} ga xabar…",
     "room.send": "Yuborish",
-    "room.sendingJoins": "Xabar yuborish sizni hamjamiyatga qo‘shadi.",
+    "room.sendingJoins": "Xabar yuborsangiz, avtomatik ravishda hamjamiyatga qo‘shilasiz.",
 
     "challenges.title": "Sinovlar va reyting",
     "challenges.subtitle": "To‘g‘ri javob bering, ball to‘plang, reytingda ko‘tariling",
@@ -543,7 +905,7 @@ const STRINGS: Record<Lang, Table> = {
     "challenges.started": "Boshlangan sinovlar",
     "challenges.active": "Faol sinovlar",
     "challenges.noneRunning": "Hozircha faol sinovlar yo‘q",
-    "challenges.checkBack": "Tez orada qayta tekshiring — har hafta yangi sinovlar chiqadi.",
+    "challenges.checkBack": "Birozdan so‘ng qaytib ko‘ring — har hafta yangi sinovlar e’lon qilinadi.",
     "challenges.joined": "qo‘shilgan",
     "challenges.reviewAnswers": "Javoblarni ko‘rish",
     "challenges.continue": "Sinovni davom ettirish",
@@ -620,6 +982,174 @@ const STRINGS: Record<Lang, Table> = {
     "settings.sessionDesc": "Bu qurilmadan chiqish",
     "settings.signOutHint": "Chiqish ushbu brauzerda saqlangan tokenni tozalaydi. Saqlangan materiallar, ballar va progress serverda saqlanadi va keyingi kirishda kutib turadi.",
     "settings.logOut": "Chiqish",
+    "settings.loading": "Sozlamalar yuklanmoqda…",
+    "settings.accountSaved": "Hisob ma’lumotlari saqlandi",
+    "settings.accountSaveError": "Ma’lumotlaringizni saqlab bo‘lmadi",
+    "settings.passwordMismatch": "Ikkita yangi parol bir xil emas",
+    "settings.passwordChanged": "Parol o‘zgartirildi",
+    "settings.passwordChangeError": "Parolni o‘zgartirib bo‘lmadi",
+    "settings.leaderboardShown": "Siz reytingda ko‘rinasiz",
+    "settings.leaderboardHidden": "Siz reytingdan yashiringansiz",
+    "settings.privacyUpdateError": "Buni yangilab bo‘lmadi",
+    "settings.historyDeleted": "Yordamchi tarixi o‘chirildi",
+    "settings.historyDeleteError": "Tarixni tozalab bo‘lmadi",
+    "settings.languageUpdated": "Til yangilandi",
+    "settings.institutionPlaceholder": "masalan, Toshkent davlat universiteti",
+    "settings.yearPlaceholder": "masalan, 3",
+    "settings.sectionsAria": "Sozlamalar bo‘limlari",
+
+    // common — additions
+    "common.you": "Siz",
+    "common.done": "bajarildi",
+    "common.previous": "Oldingi",
+    "common.back": "Orqaga",
+    "common.premium": "Premium",
+    "common.freePlan": "Bepul",
+    "common.thatDidNotWork": "Bu ishlamadi",
+    "common.couldNotSave": "Saqlab bo‘lmadi",
+    "common.savedToCollection": "To‘plamingizga saqlandi",
+    "common.removedFromSaved": "Saqlanganlardan olib tashlandi",
+    "common.linkCopied": "Havola nusxalandi",
+    "common.copyThisLink": "Bu havolani nusxalang",
+    "common.clearSearch": "Qidiruvni tozalash",
+    "common.minAgo": "{n} daqiqa oldin",
+    "common.hoursAgo": "{n} soat oldin",
+    "common.daysAgo": "{n} kun oldin",
+
+    // dashboard — additions
+    "dashboard.loadError": "Boshqaruv panelini yuklab bo‘lmadi",
+
+    // communities — additions
+    "communities.loadError": "Hamjamiyatlarni yuklab bo‘lmadi",
+    "communities.joinedToast": "«{name}»ga qo‘shildingiz",
+    "communities.leftToast": "«{name}»ni tark etdingiz",
+    "communities.createdToast": "«{name}» yaratildi",
+    "communities.createError": "Hamjamiyatni yaratib bo‘lmadi",
+    "communities.descriptionLabel": "Tavsif",
+    "communities.specialtyLabel": "Yo‘nalish",
+    "communities.noMatchQuery": "«{query}» so‘roviga mos hamjamiyat nomi yoki tavsifi topilmadi.",
+    "communities.noMatchFilter": "Bu filtr bo‘yicha hozircha hech narsa yo‘q.",
+
+    // community room — additions
+    "room.loadError": "Bu hamjamiyatni ochib bo‘lmadi",
+    "room.sendError": "Xabar yuborilmadi",
+    "room.opening": "Hamjamiyat ochilmoqda…",
+    "room.messageAria": "Xabar",
+
+    // challenges — additions
+    "challenges.loadError": "Sinovlarni yuklab bo‘lmadi",
+    "challenges.openError": "Bu sinovni ochib bo‘lmadi",
+    "challenges.noDeadline": "Muddat yo‘q",
+    "challenges.closed": "Yakunlangan",
+    "challenges.hoursLeft": "{n} soat qoldi",
+    "challenges.daysHoursLeft": "{d} kun {h} soat qoldi",
+    "challenges.answeredSummary": "{total} tadan {answered} tasiga javob berildi · {pts} ball to‘plandi",
+    "challenges.difficultyEasy": "oson",
+    "challenges.difficultyMedium": "o‘rta",
+    "challenges.difficultyHard": "qiyin",
+
+    // challenge run
+    "run.correctPoints": "To‘g‘ri — +{n} ball",
+    "run.alreadyAnsweredToast": "Siz bu savolga allaqachon javob bergansiz — bu safar ball berilmaydi",
+    "run.badgeUnlocked": "Nishon ochildi — {badge}",
+    "run.opening": "Sinov ochilmoqda…",
+    "run.complete": "Sinov yakunlandi",
+    "run.correctLabel": "To‘g‘ri",
+    "run.pointsEarned": "To‘plangan ballar",
+    "run.accuracy": "Aniqlik",
+    "run.reviewHint": "Ball har bir savol uchun faqat bir marta beriladi, shuning uchun javoblarni ko‘rib chiqish natijangizni o‘zgartirmaydi.",
+    "run.seeLeaderboard": "Reytingni ko‘rish",
+    "run.moreChallenges": "Boshqa sinovlar",
+    "run.topicLabel": "Mavzu: {topic}",
+    "run.questionProgress": "{total} tadan {n}-savol",
+    "run.answeredCount": "{n} ta javob berildi",
+    "run.questionBadge": "{n}-savol",
+    "run.notQuite": "Unchalik emas",
+    "run.pointsAwarded": "+{n} ball",
+    "run.alreadyAnsweredInline": "Allaqachon javob berilgan — ball qayta berilmaydi",
+    "run.nextQuestion": "Keyingi savol",
+    "run.finish": "Yakunlash",
+    "run.submitAnswer": "Javobni yuborish",
+    "run.submitError": "Javobni yuborib bo‘lmadi",
+
+    // library — additions
+    "library.loadError": "Kutubxonani yuklab bo‘lmadi",
+    "library.savedToast": "Saqlandi — Kutubxonada qoladi",
+    "library.removeError": "O‘chirib bo‘lmadi",
+    "library.removeFilterAria": "«{value}» filtrini olib tashlash",
+    "library.sectionsAria": "Kutubxona bo‘limlari",
+    "library.pagesCount": "{n} bet",
+    "library.saveAria": "«{title}»ni saqlash",
+    "library.removeFromSavedAria": "Saqlanganlardan olib tashlash",
+    "library.removeSavedAria": "«{title}»ni saqlanganlardan olib tashlash",
+    "library.levelFoundation": "boshlang‘ich",
+    "library.levelClinical": "klinik",
+    "library.levelAdvanced": "ilg‘or",
+
+    // article
+    "article.loadError": "Maqolani yuklab bo‘lmadi",
+    "article.registerError": "Buni qayd qilib bo‘lmadi",
+    "article.commentPosted": "Izoh joylandi",
+    "article.commentPostError": "Izohni joylab bo‘lmadi",
+    "article.commentDeleted": "Izoh o‘chirildi",
+    "article.commentDeleteError": "Izohni o‘chirib bo‘lmadi",
+    "article.loading": "Maqola yuklanmoqda…",
+    "article.minRead": "{n} daqiqalik o‘qish",
+    "article.share": "Ulashish",
+    "article.comments": "Izohlar",
+    "article.commentPlaceholder": "Muhokamaga qo‘shiling…",
+    "article.writeCommentAria": "Izoh yozish",
+    "article.commentHint": "Ismingiz ostida joylanadi va boshqa talabalarga ko‘rinadi.",
+    "article.postComment": "Izohni joylash",
+    "article.noComments": "Hali izohlar yo‘q. Birinchi bo‘ling.",
+    "article.deleteCommentAria": "Izohni o‘chirish",
+    "article.backToFeed": "Lentangizga qaytish",
+
+    // read (books/PDFs)
+    "read.loadError": "Kitobni yuklab bo‘lmadi",
+    "read.opening": "Kitob ochilmoqda…",
+    "read.notFoundTitle": "Kitob topilmadi",
+    "read.notFoundBody": "Bu nashr kutubxonada yo‘q.",
+    "read.openNewTab": "Yangi varaqda ochish",
+    "read.blockedHint": "Agar o‘quvchi ochilmasa, brauzeringiz o‘rnatilgan hujjatni bloklamoqda — quyidagidan foydalaning",
+
+    // watch (video)
+    "watch.loadError": "Videoni yuklab bo‘lmadi",
+    "watch.loading": "Video yuklanmoqda…",
+    "watch.notFoundTitle": "Video topilmadi",
+    "watch.notFoundBody": "Bu video kutubxonada yo‘q.",
+
+    // feed
+    "feed.title": "Sizning lentangiz",
+    "feed.subtitle": "Tibbiyot yangiliklari, o‘qish texnikasi va tadbirlar — har bir so‘z bo‘yicha qidirish mumkin",
+    "feed.tagAll": "Barchasi",
+    "feed.tagMedicalNews": "Tibbiyot yangiliklari",
+    "feed.tagStudyTip": "O‘qish maslahati",
+    "feed.tagUpcomingEvent": "Yaqinlashayotgan tadbir",
+    "feed.tagSponsored": "Reklama",
+    "feed.loadError": "Lentani yuklab bo‘lmadi",
+    "feed.searchPlaceholder": "Maqolalar va ularning matnidan qidirish",
+    "feed.searchAria": "Lentangizdan qidirish",
+    "feed.searchHint": "Faqat sarlavha emas, har bir maqolaning to‘liq matnidan qidiradi.",
+    "feed.readArticle": "Maqolani o‘qish",
+    "feed.commentAria": "«{title}»ga izoh qoldirish",
+    "feed.copyLinkAria": "Havolani nusxalash",
+    "feed.noMatch": "Bu so‘rovga mos narsa topilmadi",
+    "feed.noMatchHint": "Boshqa so‘z bilan qidiring yoki qidiruvni tozalang.",
+    "feed.noMatchQueryBody": "Hech bir maqolada «{query}» so‘zi yo‘q. Kengroq so‘z bilan qidiring — qidiruv har bir maqolaning to‘liq matnini qamrab oladi.",
+    "feed.noMatchFilterBody": "Bu filtr bo‘yicha hali maqolalar yo‘q.",
+
+    // profile — additions
+    "profile.loadError": "Profilingizni yuklab bo‘lmadi",
+    "profile.loading": "Profil yuklanmoqda…",
+    "profile.yearLabel": "{n}-kurs",
+    "profile.badgesEarnedOf": "{total} tadan {earned} tasi olingan",
+    "profile.earnedOn": "{date} olingan",
+    "profile.badgesHint2": "Nishonlar haqiqiy faoliyat orqali ochiladi — darsni tugatish, sinov savollariga javob berish, materiallarni saqlash, hamjamiyatlarga qo‘shilish.",
+    "profile.openLeaderboardHint": "Reytingni ochish",
+    "profile.viewBadgesHint": "Nishonlarni ko‘rish",
+    "profile.viewCommunitiesHint": "Hamjamiyatlaringizni ko‘rish",
+    "profile.streakDaysCount": "{n} kun",
   },
 };
 
@@ -649,6 +1179,23 @@ function interpolate(template: string, vars?: Record<string, string | number>): 
     (acc, [name, value]) => acc.split(`{${name}}`).join(String(value)),
     template
   );
+}
+
+/**
+ * Resolve a key for an explicit language rather than the active one.
+ *
+ * `useLanguage().t` is bound to the language the component last rendered
+ * with. Code that calls `setLang(next)` and then immediately needs a string
+ * *in `next`* — e.g. the confirmation toast the language switcher itself
+ * shows — cannot wait for the re-render `t` would need, so it calls this
+ * instead.
+ */
+export function translateFor(
+  lang: Lang,
+  key: string,
+  vars?: Record<string, string | number>
+): string {
+  return interpolate(STRINGS[lang][key] ?? STRINGS.en[key] ?? key, vars);
 }
 
 const LanguageContext = createContext<LanguageContextValue>({

@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { ErrorState, LoadingState } from "@/components/ui/states";
+import { useLanguage } from "@/lib/i18n";
 import { api, type LibraryResource } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
@@ -15,6 +16,12 @@ const FALLBACK_PDF = "https://api.ziyonet.uz/uploads/books/49959/55d597ec00c54.p
 export default function Read() {
   const { slug = "" } = useParams();
   const toast = useToast();
+  const { t, lang } = useLanguage();
+  const LEVEL_LABEL: Record<string, string> = {
+    foundation: t("library.levelFoundation"),
+    clinical: t("library.levelClinical"),
+    advanced: t("library.levelAdvanced"),
+  };
   const [resource, setResource] = useState<LibraryResource | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -26,7 +33,7 @@ export default function Read() {
       setResource(list.find((item) => item.slug === slug) ?? null);
       setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not load this book");
+      setError(e instanceof Error ? e.message : t("read.loadError"));
     } finally {
       setLoading(false);
     }
@@ -35,7 +42,7 @@ export default function Read() {
   useEffect(() => {
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slug]);
+  }, [slug, lang]);
 
   async function toggleSave() {
     if (!resource) return;
@@ -44,20 +51,20 @@ export default function Read() {
     try {
       if (next) await api.save(resource.kind, resource.slug);
       else await api.unsave(resource.kind, resource.slug);
-      toast(next ? "Saved" : "Removed from Saved");
+      toast(next ? t("common.saved") : t("common.removedFromSaved"));
     } catch (e) {
       setResource({ ...resource, saved: !next });
-      toast(e instanceof Error ? e.message : "Could not save that", "error");
+      toast(e instanceof Error ? e.message : t("common.couldNotSave"), "error");
     }
   }
 
-  if (loading) return <LoadingState label="Opening book…" />;
+  if (loading) return <LoadingState label={t("read.opening")} />;
   if (error) return <ErrorState message={error} onRetry={() => void load()} />;
   if (!resource) {
     return (
       <ErrorState
-        title="Book not found"
-        message="That title is not in the library."
+        title={t("read.notFoundTitle")}
+        message={t("read.notFoundBody")}
         onRetry={() => void load()}
       />
     );
@@ -72,7 +79,7 @@ export default function Read() {
         className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-        Library
+        {t("nav.library")}
       </Link>
 
       <Card className="mb-4 p-6">
@@ -87,18 +94,20 @@ export default function Read() {
             <div className="mt-3 flex flex-wrap items-center gap-2">
               {resource.level && (
                 <Badge variant="muted" className="capitalize">
-                  {resource.level}
+                  {LEVEL_LABEL[resource.level] ?? resource.level}
                 </Badge>
               )}
               {resource.topic && <Badge variant="muted">{resource.topic}</Badge>}
-              {resource.pages ? <Badge variant="muted">{resource.pages} pages</Badge> : null}
+              {resource.pages ? (
+                <Badge variant="muted">{t("library.pagesCount", { n: resource.pages })}</Badge>
+              ) : null}
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
             <a href={source} target="_blank" rel="noreferrer">
               <Button variant="outline">
                 <ExternalLink className="h-4 w-4" aria-hidden="true" />
-                Open in new tab
+                {t("read.openNewTab")}
               </Button>
             </a>
             <Button
@@ -110,7 +119,7 @@ export default function Read() {
                 className={cn("h-4 w-4", resource.saved && "fill-current")}
                 aria-hidden="true"
               />
-              {resource.saved ? "Saved" : "Save"}
+              {resource.saved ? t("common.saved") : t("common.save")}
             </Button>
           </div>
         </div>
@@ -125,9 +134,9 @@ export default function Read() {
         />
       </Card>
       <p className="mt-3 text-xs text-muted-foreground">
-        If the reader does not load, your browser is blocking the embedded document — use{" "}
+        {t("read.blockedHint")}{" "}
         <a href={source} target="_blank" rel="noreferrer" className="text-primary hover:underline">
-          Open in new tab
+          {t("read.openNewTab")}
         </a>
         .
       </p>

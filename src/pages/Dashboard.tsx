@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
 export default function Dashboard() {
   const navigate = useNavigate();
   const { me } = useSession();
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [featured, setFeatured] = useState<ChallengeSummary | null>(null);
@@ -30,8 +30,8 @@ export default function Dashboard() {
         setProfile(me_);
         setFeatured(challenges.find((c) => !c.completed) ?? challenges[0] ?? null);
       })
-      .catch((e) => setError(e instanceof Error ? e.message : "Could not load the dashboard"));
-  }, []);
+      .catch((e) => setError(e instanceof Error ? e.message : t("dashboard.loadError")));
+  }, [lang]);
 
   const stats = useMemo(
     () => [
@@ -81,7 +81,7 @@ export default function Dashboard() {
           <h1 className="font-display text-3xl font-bold md:text-4xl">{greeting}</h1>
           <p className="mt-1 text-muted-foreground">
             {profile && profile.streak_days > 1
-              ? `${profile.streak_days}-${t("dashboard.streakKeepGoing")}`
+              ? t("dashboard.streakKeepGoing", { n: profile.streak_days })
               : t("dashboard.streakStart")}
           </p>
         </div>
