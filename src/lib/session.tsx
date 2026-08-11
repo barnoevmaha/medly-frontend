@@ -7,7 +7,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { api, clearToken, getToken, type Me } from "@/lib/api";
+import { api, ApiError, clearToken, getToken, type Me } from "@/lib/api";
 
 interface Session {
   me: Me | null;
@@ -45,7 +45,17 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       const user = await api.me();
       setMe(user);
       return user;
-    } catch {
+    } catch (error) {
+      // Session bootstrap: a stored token that the server rejects (expired,
+      // signed with a rotated secret, or belonging to a user that no longer
+      // exists after a database reset) must not leave the app stuck on a page
+      // full of 401s. Drop it and start over at the sign-in screen.
+      if (error instanceof ApiError && error.status === 401) {
+        clearToken();
+        if (window.location.pathname !== "/login") {
+          window.location.assign("/login");
+        }
+      }
       setMe(null);
       return null;
     } finally {

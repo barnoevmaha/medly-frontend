@@ -80,9 +80,14 @@ export default function Dashboard() {
               : "Answer a question or finish a lesson to start a streak."}
           </p>
         </div>
-        <Link to="/learn">
-          <Button variant="outline">Continue AI Training</Button>
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link to="/learn">
+            <Button variant="outline">AI Training</Button>
+          </Link>
+          <Link to="/imaging">
+            <Button variant="outline">Imaging workbench</Button>
+          </Link>
+        </div>
       </header>
 
       {error && <ErrorState message={error} />}

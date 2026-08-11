@@ -1,25 +1,33 @@
 import { useEffect, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { Bookmark, LogOut, MoreHorizontal, X } from "lucide-react";
-import { MOBILE_PRIMARY, navItems } from "@/config/site";
+import { Crown, LogOut, MoreHorizontal, Settings, User, X } from "lucide-react";
+import { MOBILE_PRIMARY, navItems, staffNavItems } from "@/config/site";
+import { Avatar } from "@/components/ui/avatar";
 import { useSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
 const primary = MOBILE_PRIMARY.map((to) => navItems.find((item) => item.to === to)!).filter(
   Boolean
 );
-const overflow = navItems.filter((item) => !MOBILE_PRIMARY.includes(item.to));
+
+function sheetItemClass(isActive: boolean) {
+  return cn(
+    "flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-colors",
+    isActive ? "bg-primary/10 text-primary" : "hover:bg-muted"
+  );
+}
 
 /**
  * Bottom bar for small screens.
  *
- * The sidebar carries ten destinations and a bottom bar cannot. Four live on
- * the bar; the rest open in a sheet rather than being unreachable on a phone.
+ * Four destinations on the bar, the rest in a sheet — a phone gets a phone's
+ * navigation rather than a squeezed copy of the sidebar.
  */
 export function MobileNav() {
   const [open, setOpen] = useState(false);
   const location = useLocation();
   const { me, logout } = useSession();
+  const isStaff = me?.role === "instructor" || me?.role === "admin";
 
   // Close on navigation, or the sheet stays over the page you just opened.
   useEffect(() => setOpen(false), [location.pathname]);
@@ -30,21 +38,24 @@ export function MobileNav() {
         <div
           className="fixed inset-0 z-40 bg-black/50 md:hidden"
           onClick={() => setOpen(false)}
-          aria-hidden
+          aria-hidden="true"
         />
       )}
 
       {open && (
         <div className="fixed bottom-16 left-0 right-0 z-50 max-h-[65vh] overflow-y-auto rounded-t-2xl border-t border-border bg-card p-4 shadow-medium animate-fade-up md:hidden">
-          <div className="mb-3 flex items-center justify-between">
-            <div className="min-w-0">
-              <p className="truncate font-semibold">{me?.full_name ?? "Menu"}</p>
-              {me && (
-                <p className="truncate text-xs text-muted-foreground">
-                  {me.is_premium ? "Premium" : "Free"} · {me.points.toLocaleString()} pts
-                </p>
-              )}
-            </div>
+          <div className="mb-3 flex items-center justify-between gap-3">
+            {me && (
+              <div className="flex min-w-0 items-center gap-3">
+                <Avatar name={me.full_name} className="h-9 w-9 shrink-0 text-xs" />
+                <div className="min-w-0">
+                  <p className="truncate font-semibold">{me.full_name}</p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {me.is_premium ? "Premium" : "Free"} · {me.points.toLocaleString()} pts
+                  </p>
+                </div>
+              </div>
+            )}
             <button
               onClick={() => setOpen(false)}
               className="rounded-lg p-2 text-muted-foreground"
@@ -54,35 +65,39 @@ export function MobileNav() {
             </button>
           </div>
 
-          <ul className="grid grid-cols-2 gap-2">
-            {overflow.map(({ label, to, icon: Icon }) => (
-              <li key={to}>
+          <ul className="space-y-1">
+            <li>
+              <NavLink to="/profile" className={({ isActive }) => sheetItemClass(isActive)}>
+                <User className="h-5 w-5" aria-hidden="true" />
+                Profile
+              </NavLink>
+            </li>
+            {isStaff &&
+              staffNavItems.map(({ label, to, icon: Icon }) => (
+                <li key={to}>
+                  <NavLink to={to} className={({ isActive }) => sheetItemClass(isActive)}>
+                    <Icon className="h-5 w-5" aria-hidden="true" />
+                    {label}
+                  </NavLink>
+                </li>
+              ))}
+            {!me?.is_premium && (
+              <li>
                 <NavLink
-                  to={to}
+                  to="/premium"
                   className={({ isActive }) =>
-                    cn(
-                      "flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-colors",
-                      isActive ? "bg-primary/10 text-primary" : "hover:bg-muted"
-                    )
+                    cn(sheetItemClass(isActive), "text-accent hover:bg-accent/10")
                   }
                 >
-                  <Icon className="h-5 w-5" />
-                  {label}
+                  <Crown className="h-5 w-5" aria-hidden="true" />
+                  Go Premium
                 </NavLink>
               </li>
-            ))}
+            )}
             <li>
-              <NavLink
-                to="/saved"
-                className={({ isActive }) =>
-                  cn(
-                    "flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-colors",
-                    isActive ? "bg-primary/10 text-primary" : "hover:bg-muted"
-                  )
-                }
-              >
-                <Bookmark className="h-5 w-5" />
-                Saved
+              <NavLink to="/settings" className={({ isActive }) => sheetItemClass(isActive)}>
+                <Settings className="h-5 w-5" aria-hidden="true" />
+                Settings
               </NavLink>
             </li>
             <li>
@@ -90,7 +105,7 @@ export function MobileNav() {
                 onClick={logout}
                 className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted"
               >
-                <LogOut className="h-5 w-5" />
+                <LogOut className="h-5 w-5" aria-hidden="true" />
                 Log out
               </button>
             </li>
@@ -98,7 +113,10 @@ export function MobileNav() {
         </div>
       )}
 
-      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-card/95 shadow-medium backdrop-blur-lg md:hidden">
+      <nav
+        className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-card/95 shadow-medium backdrop-blur-lg md:hidden"
+        aria-label="Main"
+      >
         <ul className="flex items-stretch justify-around">
           {primary.map(({ label, to, icon: Icon }) => (
             <li key={to} className="flex-1">
@@ -111,7 +129,7 @@ export function MobileNav() {
                   )
                 }
               >
-                <Icon className="h-5 w-5" />
+                <Icon className="h-5 w-5" aria-hidden="true" />
                 {label}
               </NavLink>
             </li>
@@ -125,7 +143,7 @@ export function MobileNav() {
                 open ? "text-primary" : "text-muted-foreground"
               )}
             >
-              <MoreHorizontal className="h-5 w-5" />
+              <MoreHorizontal className="h-5 w-5" aria-hidden="true" />
               More
             </button>
           </li>

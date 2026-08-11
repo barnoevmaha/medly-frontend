@@ -11,7 +11,6 @@ import CommunityRoom from "@/pages/CommunityRoom";
 import Challenges from "@/pages/Challenges";
 import ChallengeRun from "@/pages/ChallengeRun";
 import Library from "@/pages/Library";
-import Saved from "@/pages/Saved";
 import Settings from "@/pages/Settings";
 import Leaderboard from "@/pages/Leaderboard";
 import Premium from "@/pages/Premium";
@@ -44,7 +43,11 @@ export default function App() {
               {/* Library is the catalogue of what exists; Saved is what this
                   user kept. Separate sections, separate routes. */}
               <Route path="/library" element={<Library />} />
-              <Route path="/saved" element={<Saved />} />
+              {/* Saved became a tab inside Library. Old links still resolve. */}
+              <Route
+                path="/saved"
+                element={<Navigate to="/library?tab=saved" replace />}
+              />
               <Route path="/settings" element={<Settings />} />
               <Route path="/leaderboard" element={<Leaderboard />} />
               <Route path="/premium" element={<Premium />} />

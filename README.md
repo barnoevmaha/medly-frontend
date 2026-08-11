@@ -67,16 +67,17 @@ public/
 | `/feed/:slug` | Article + comments | app shell |
 | `/community` `/community/:slug` | Community list, community chat | app shell |
 | `/challenges` `/challenges/:slug` | Challenge list, challenge runner | app shell |
-| `/library` | Library catalogue (books, PDFs, videos) | app shell |
-| `/saved` | Saved collection across all four types | app shell |
+| `/library` | Videos · Saved · Books · PDFs · Articles | app shell |
+| `/saved` | Redirects to `/library?tab=saved` | app shell |
 | `/settings` | Account, security, privacy, appearance | app shell |
 | `/leaderboard` | Ranking by points | app shell |
 | `/premium` | Premium | app shell |
 | `/profile` | Profile (`?tab=badges` deep-links) | app shell |
 | `/imaging` `/imaging/cases` `/imaging/cases/:id` | Workbench, case references | app shell |
 
-Library and Saved are separate sections: Library is the catalogue, Saved is what
-this user kept. Saving from Library never removes anything from it.
+Student nav: Dashboard · Communities · Challenges · Library · Profile, then Go
+Premium, Settings and Log out. Saved is a Library tab. AI Training, the imaging
+Workbench and Governance appear in the sidebar for instructors and admins only.
 
 ## What works
 

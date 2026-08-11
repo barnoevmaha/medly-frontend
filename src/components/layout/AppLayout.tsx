@@ -3,14 +3,36 @@ import { Sidebar } from "./Sidebar";
 import { MobileNav } from "./MobileNav";
 import { AssistantWidget } from "@/components/assistant/AssistantWidget";
 import { getToken } from "@/lib/api";
+import { useSession } from "@/lib/session";
 
 export function AppLayout() {
   const location = useLocation();
+  const { me, loading } = useSession();
 
   // Every route inside this layout calls the API, and the API is authenticated.
   // Without this check an unauthenticated visit renders a page full of 401
   // errors instead of a sign-in prompt.
   if (!getToken()) {
+    return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+  }
+
+  // Session bootstrap: `/api/auth/me` runs once before children render, so a
+  // stale token is detected and redirected before a single page of 401s shows.
+  if (loading && !me) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="flex items-center gap-3 text-muted-foreground">
+          <span className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <span className="text-sm font-medium">Loading your workspace…</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Bootstrap finished and still no user: the token was present but rejected.
+  // Without this the layout renders children over a dead session and every page
+  // fills with 401s — the exact failure this check exists to prevent.
+  if (!me) {
     return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   }
 

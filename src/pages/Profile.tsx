@@ -236,7 +236,7 @@ export default function Profile() {
                 <dd className="font-semibold">{profile.community_count}</dd>
               </div>
             </dl>
-            <Link to="/saved">
+            <Link to="/library?tab=saved">
               <Button className="mt-4 w-full" variant="outline" size="sm">
                 Open Saved
               </Button>

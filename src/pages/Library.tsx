@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import {
-  Bookmark, BookOpen, Crown, FileText, Filter, Search, Star, Video, X,
+  Bookmark, BookOpen, Crown, FileText, Newspaper, Play, Search, SlidersHorizontal,
+  Star, Trash2, Video, X,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -11,43 +12,72 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { Cover } from "@/components/ui/cover";
 import { useToast } from "@/components/ui/toast";
 import { EmptyState, ErrorState, SkeletonCard } from "@/components/ui/states";
-import { api, type LibraryResource } from "@/lib/api";
+import {
+  api,
+  type ArticleSummary,
+  type LibraryResource,
+  type SavedEntry,
+  type SavedType,
+} from "@/lib/api";
 import { cn } from "@/lib/utils";
 
-const KINDS = {
-  book: { label: "Books", singular: "Book", icon: BookOpen },
-  pdf: { label: "PDFs", singular: "PDF", icon: FileText },
-  video: { label: "Videos", singular: "Video", icon: Video },
-} as const;
+/* Tab order is deliberate: video first because it is what students open most,
+   Saved second because it is the thing they came back for. */
+const TABS = [
+  { key: "video", label: "Videos", icon: Video },
+  { key: "saved", label: "Saved", icon: Bookmark },
+  { key: "book", label: "Books", icon: BookOpen },
+  { key: "pdf", label: "PDFs", icon: FileText },
+  { key: "article", label: "Articles", icon: Newspaper },
+] as const;
 
-type Kind = keyof typeof KINDS;
+type TabKey = (typeof TABS)[number]["key"];
+
+const CTA: Record<string, string> = { video: "Watch", book: "Read", pdf: "Read", article: "Read" };
+const TYPE_ICON: Record<SavedType, typeof BookOpen> = {
+  article: Newspaper,
+  book: BookOpen,
+  pdf: FileText,
+  video: Video,
+};
 
 /**
- * Library — the catalogue of educational resources.
+ * Library — everything available, plus what this student kept.
  *
- * Distinct from Saved: this is everything available, Saved is what this user
- * kept. Saving from here adds a row to the Saved collection and leaves the
- * resource exactly where it is.
+ * Saved is a tab here rather than a nav entry of its own: it is a view of the
+ * library filtered to your bookmarks, not a separate place. Saving never
+ * removes anything from its type tab.
  */
 export default function Library() {
   const toast = useToast();
+  const [params, setParams] = useSearchParams();
+  const tab = (params.get("tab") as TabKey) ?? "video";
 
   const [resources, setResources] = useState<LibraryResource[]>([]);
-  const [open, setOpen] = useState<LibraryResource | null>(null);
+  const [articles, setArticles] = useState<ArticleSummary[]>([]);
+  const [saved, setSaved] = useState<SavedEntry[]>([]);
+  const [counts, setCounts] = useState<Record<string, number>>({});
+
   const [query, setQuery] = useState("");
-  const [kind, setKind] = useState<Kind | null>(null);
   const [level, setLevel] = useState<string | null>(null);
   const [topic, setTopic] = useState<string | null>(null);
-  const [savedCount, setSavedCount] = useState(0);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [list, counts] = await Promise.all([api.resources(), api.savedCounts()]);
+      const [list, feed, savedList, savedCounts] = await Promise.all([
+        api.resources(),
+        api.articles(),
+        api.saved(),
+        api.savedCounts(),
+      ]);
       setResources(list);
-      setSavedCount(counts.all ?? 0);
+      setArticles(feed);
+      setSaved(savedList);
+      setCounts(savedCounts);
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not load the library");
@@ -60,23 +90,6 @@ export default function Library() {
     void load();
   }, [load]);
 
-  // One search box across the whole library: title, author, description,
-  // publisher and topic, on every type at once. The type tiles and the chips
-  // below narrow it; they do not replace it.
-  const results = useMemo(() => {
-    const needle = query.trim().toLowerCase();
-    return resources.filter(
-      (resource) =>
-        (!kind || resource.kind === kind) &&
-        (!level || resource.level === level) &&
-        (!topic || resource.topic === topic) &&
-        (!needle ||
-          `${resource.title} ${resource.author} ${resource.description} ${resource.publisher} ${resource.topic}`
-            .toLowerCase()
-            .includes(needle))
-    );
-  }, [resources, query, kind, level, topic]);
-
   const topics = useMemo(
     () => Array.from(new Set(resources.map((r) => r.topic).filter(Boolean))).sort(),
     [resources]
@@ -86,22 +99,66 @@ export default function Library() {
     [resources]
   );
 
-  async function toggleSave(resource: LibraryResource) {
+  const needle = query.trim().toLowerCase();
+  const activeFilters = [level, topic].filter(Boolean).length + (needle ? 1 : 0);
+
+  /* One search box across the whole library — every tab, every field that
+     actually exists on the record. */
+  const visibleResources = useMemo(
+    () =>
+      resources.filter(
+        (r) =>
+          (tab === "saved" || r.kind === tab) &&
+          (!level || r.level === level) &&
+          (!topic || r.topic === topic) &&
+          (!needle ||
+            `${r.title} ${r.author} ${r.description} ${r.publisher} ${r.topic}`
+              .toLowerCase()
+              .includes(needle))
+      ),
+    [resources, tab, level, topic, needle]
+  );
+
+  const visibleArticles = useMemo(
+    () =>
+      articles.filter(
+        (a) =>
+          !needle ||
+          `${a.title} ${a.excerpt} ${a.author} ${a.tag}`.toLowerCase().includes(needle)
+      ),
+    [articles, needle]
+  );
+
+  const visibleSaved = useMemo(
+    () =>
+      saved.filter(
+        (s) => !needle || `${s.title} ${s.subtitle} ${s.description}`.toLowerCase().includes(needle)
+      ),
+    [saved, needle]
+  );
+
+  function clearFilters() {
+    setLevel(null);
+    setTopic(null);
+    setQuery("");
+  }
+
+  async function refreshSaved() {
+    const [savedList, savedCounts] = await Promise.all([api.saved(), api.savedCounts()]);
+    setSaved(savedList);
+    setCounts(savedCounts);
+  }
+
+  async function toggleResource(resource: LibraryResource) {
     const next = !resource.saved;
     setResources((current) =>
       current.map((item) => (item.id === resource.id ? { ...item, saved: next } : item))
     );
-    if (open?.id === resource.id) setOpen({ ...open, saved: next });
     try {
       if (next) await api.save(resource.kind, resource.slug);
       else await api.unsave(resource.kind, resource.slug);
-      // Saving copies a reference into Saved; the resource stays in the library.
-      toast(
-        next
-          ? `${KINDS[resource.kind].singular} saved — still here in the Library`
-          : "Removed from Saved"
-      );
-      setSavedCount((await api.savedCounts()).all ?? 0);
+      toast(next ? "Saved — still in the Library" : "Removed from Saved");
+      await refreshSaved();
     } catch (e) {
       setResources((current) =>
         current.map((item) => (item.id === resource.id ? { ...item, saved: !next } : item))
@@ -110,145 +167,380 @@ export default function Library() {
     }
   }
 
+  async function toggleArticle(article: ArticleSummary) {
+    const next = !article.saved;
+    setArticles((current) =>
+      current.map((item) => (item.id === article.id ? { ...item, saved: next } : item))
+    );
+    try {
+      if (next) await api.save("article", article.slug);
+      else await api.unsave("article", article.slug);
+      toast(next ? "Saved" : "Removed from Saved");
+      await refreshSaved();
+    } catch (e) {
+      setArticles((current) =>
+        current.map((item) => (item.id === article.id ? { ...item, saved: !next } : item))
+      );
+      toast(e instanceof Error ? e.message : "Could not save that", "error");
+    }
+  }
+
+  async function removeSaved(entry: SavedEntry) {
+    setSaved((current) => current.filter((item) => item.id !== entry.id));
+    try {
+      await api.unsave(entry.item_type, entry.item_key);
+      toast("Removed from Saved");
+      setResources((current) =>
+        current.map((item) => (item.slug === entry.item_key ? { ...item, saved: false } : item))
+      );
+      setArticles((current) =>
+        current.map((item) => (item.slug === entry.item_key ? { ...item, saved: false } : item))
+      );
+      setCounts(await api.savedCounts());
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "Could not remove that", "error");
+      void load();
+    }
+  }
+
+  const tabCount = (key: TabKey) =>
+    key === "saved"
+      ? counts.all ?? 0
+      : key === "article"
+      ? articles.length
+      : resources.filter((r) => r.kind === key).length;
+
   return (
     <>
       <PageHeader
         title="Library"
-        subtitle="Books, PDFs and videos available to every student"
-        action={
-          <Link to="/saved">
-            <Button variant="outline">
-              <Bookmark className="h-4 w-4" />
-              Saved
-              <span className="ml-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
-                {savedCount}
-              </span>
-            </Button>
-          </Link>
-        }
+        subtitle="Videos, books, PDFs and articles — plus everything you have saved"
       />
 
-      <div className="mb-6 flex flex-wrap gap-3">
+      {/* ---------------- search + filters ---------------- */}
+      <div className="mb-4 flex flex-wrap gap-3">
         <div className="relative min-w-[240px] flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Search
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+            aria-hidden="true"
+          />
           <Input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search books, PDFs and videos…"
+            placeholder="Search the whole library…"
             className="pl-9"
             aria-label="Search the library"
+            type="search"
           />
         </div>
         <Button
           variant="outline"
-          disabled={!query && !kind && !level && !topic}
-          onClick={() => {
-            setKind(null);
-            setLevel(null);
-            setTopic(null);
-            setQuery("");
-          }}
+          onClick={() => setFiltersOpen((value) => !value)}
+          aria-expanded={filtersOpen}
         >
-          <Filter className="h-4 w-4" aria-hidden="true" />
-          Clear filters
+          <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
+          Filter
+          {activeFilters > 0 && (
+            <span className="ml-1 rounded-full bg-primary px-1.5 text-xs font-semibold text-primary-foreground">
+              {activeFilters}
+            </span>
+          )}
         </Button>
+        {/* "Clear" only exists while something is filtered. */}
+        {activeFilters > 0 && (
+          <Button variant="ghost" onClick={clearFilters}>
+            Clear all
+          </Button>
+        )}
       </div>
 
-      {(topics.length > 0 || levels.length > 0) && (
-        <div className="mb-8 flex flex-wrap gap-2">
-          {levels.map((value) => (
+      {filtersOpen && (levels.length > 0 || topics.length > 0) && (
+        <Card className="mb-4 p-5 animate-fade-up">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h2 className="font-display font-bold">Filters</h2>
+              <p className="mt-0.5 text-sm text-muted-foreground">
+                Built from the catalogue — only values that exist appear here.
+              </p>
+            </div>
             <button
-              key={value}
-              onClick={() => setLevel(level === value ? null : value)}
-              aria-pressed={level === value}
-              className={cn(
-                "rounded-full border px-3 py-1 text-xs font-medium capitalize transition-colors",
-                level === value
-                  ? "border-primary bg-primary/10 text-primary"
-                  : "border-border text-muted-foreground hover:bg-muted"
-              )}
+              onClick={() => setFiltersOpen(false)}
+              className="rounded-lg p-2 text-muted-foreground hover:bg-muted"
+              aria-label="Close filters"
             >
-              {value}
+              <X className="h-4 w-4" />
             </button>
-          ))}
-          <span className="mx-1 self-center text-border" aria-hidden="true">|</span>
-          {topics.map((value) => (
-            <button
-              key={value}
-              onClick={() => setTopic(topic === value ? null : value)}
-              aria-pressed={topic === value}
-              className={cn(
-                "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-                topic === value
-                  ? "border-primary bg-primary/10 text-primary"
-                  : "border-border text-muted-foreground hover:bg-muted"
-              )}
-            >
-              {value}
-            </button>
-          ))}
+          </div>
+
+          <fieldset className="mt-4">
+            <legend className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Level
+            </legend>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {levels.map((value) => (
+                <button
+                  key={value}
+                  onClick={() => setLevel(level === value ? null : value)}
+                  aria-pressed={level === value}
+                  className={cn(
+                    "rounded-full border px-3 py-1 text-xs font-medium capitalize transition-colors",
+                    level === value
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground hover:bg-muted"
+                  )}
+                >
+                  {value}
+                </button>
+              ))}
+            </div>
+          </fieldset>
+
+          <fieldset className="mt-4">
+            <legend className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Subject
+            </legend>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {topics.map((value) => (
+                <button
+                  key={value}
+                  onClick={() => setTopic(topic === value ? null : value)}
+                  aria-pressed={topic === value}
+                  className={cn(
+                    "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+                    topic === value
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground hover:bg-muted"
+                  )}
+                >
+                  {value}
+                </button>
+              ))}
+            </div>
+          </fieldset>
+        </Card>
+      )}
+
+      {/* Active filter chips */}
+      {activeFilters > 0 && (
+        <div className="mb-5 flex flex-wrap items-center gap-2">
+          {needle && (
+            <Badge variant="muted">
+              “{query.trim()}”
+              <button onClick={() => setQuery("")} aria-label="Clear search">
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          )}
+          {level && (
+            <Badge variant="muted">
+              <span className="capitalize">{level}</span>
+              <button onClick={() => setLevel(null)} aria-label={`Remove ${level} filter`}>
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          )}
+          {topic && (
+            <Badge variant="muted">
+              {topic}
+              <button onClick={() => setTopic(null)} aria-label={`Remove ${topic} filter`}>
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          )}
         </div>
       )}
 
-      <div className="mb-8 grid gap-4 sm:grid-cols-3">
-        {(Object.keys(KINDS) as Kind[]).map((value) => {
-          const Icon = KINDS[value].icon;
-          const active = kind === value;
-          const total = resources.filter((resource) => resource.kind === value).length;
-          return (
-            <button key={value} onClick={() => setKind(active ? null : value)} className="text-left">
-              <Card
-                className={cn("flex items-center gap-4 p-5 card-hover", active && "ring-2 ring-primary")}
-              >
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                  <Icon className="h-6 w-6" aria-hidden="true" />
-                </div>
-                <div>
-                  <div className="font-display font-bold">{KINDS[value].label}</div>
-                  <div className="text-sm text-muted-foreground">{total} available</div>
-                </div>
-              </Card>
-            </button>
-          );
-        })}
+      {/* ---------------- tabs ---------------- */}
+      <div
+        className="mb-6 flex gap-2 overflow-x-auto pb-1 scrollbar-hide"
+        role="tablist"
+        aria-label="Library sections"
+      >
+        {TABS.map(({ key, label, icon: Icon }) => (
+          <button
+            key={key}
+            role="tab"
+            aria-selected={tab === key}
+            onClick={() => setParams(key === "video" ? {} : { tab: key })}
+            className={cn(
+              "flex items-center gap-2 whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-medium transition-colors",
+              tab === key
+                ? "bg-primary text-primary-foreground"
+                : "bg-card text-muted-foreground hover:bg-muted"
+            )}
+          >
+            <Icon className="h-4 w-4" aria-hidden="true" />
+            {label}
+            <span className="opacity-70">{tabCount(key)}</span>
+          </button>
+        ))}
       </div>
 
       {error && <ErrorState message={error} onRetry={() => void load()} />}
 
-      <h2 className="mb-4 font-display text-2xl font-bold">
-        {kind ? KINDS[kind].label : "All resources"}
-        <span className="ml-2 text-base font-medium text-muted-foreground">
-          ({results.length})
-        </span>
-      </h2>
-
       {loading ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <SkeletonCard />
+        <div className="grid gap-4 sm:grid-cols-2">
           <SkeletonCard />
           <SkeletonCard />
         </div>
-      ) : results.length === 0 ? (
+      ) : tab === "saved" ? (
+        /* ---------------- saved ---------------- */
+        visibleSaved.length === 0 ? (
+          <EmptyState
+            icon={<Bookmark className="h-8 w-8" />}
+            title={needle ? "Nothing saved matches that" : "Nothing saved yet"}
+            body="Bookmark a video, book, PDF or article and it collects here. Saving never removes it from its own tab."
+            action={
+              <Button onClick={() => setParams({})}>
+                <Video className="h-4 w-4" aria-hidden="true" />
+                Browse videos
+              </Button>
+            }
+          />
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2">
+            {visibleSaved.map((entry) => {
+              const Icon = TYPE_ICON[entry.item_type];
+              const internal = entry.href.startsWith("/");
+              return (
+                <Card key={entry.id} className="flex gap-4 p-4 card-hover animate-fade-in">
+                  <div className="w-20 shrink-0 overflow-hidden rounded-lg border border-border">
+                    <Cover src={entry.cover} width={180} height={240} />
+                  </div>
+                  <div className="flex min-w-0 flex-1 flex-col">
+                    <Badge variant="muted" className="self-start">
+                      <Icon className="h-3 w-3" aria-hidden="true" />
+                      {entry.item_type}
+                    </Badge>
+                    <h3 className="mt-2 font-display font-bold leading-snug">{entry.title}</h3>
+                    {entry.subtitle && (
+                      <p className="mt-0.5 text-sm text-muted-foreground">{entry.subtitle}</p>
+                    )}
+                    {entry.meta && (
+                      <p className="mt-2 text-xs text-muted-foreground">{entry.meta}</p>
+                    )}
+                    <div className="mt-auto flex gap-2 pt-4">
+                      {internal && (
+                        <Link to={entry.href} className="flex-1">
+                          <Button className="w-full" size="sm">
+                            Read
+                          </Button>
+                        </Link>
+                      )}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className={internal ? "" : "flex-1"}
+                        onClick={() => void removeSaved(entry)}
+                        aria-label={`Remove ${entry.title} from Saved`}
+                      >
+                        <Trash2 className="h-4 w-4" aria-hidden="true" />
+                        Remove
+                      </Button>
+                    </div>
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        )
+      ) : tab === "article" ? (
+        /* ---------------- articles: editorial cards ---------------- */
+        visibleArticles.length === 0 ? (
+          <EmptyState
+            icon={<Search className="h-8 w-8" />}
+            title="No articles match"
+            body="Try a broader term — article search covers the full text."
+          />
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2">
+            {visibleArticles.map((article) => (
+              <Card
+                key={article.id}
+                className="flex flex-col overflow-hidden p-0 card-hover animate-fade-in"
+              >
+                <Link to={`/feed/${article.slug}`} tabIndex={-1} aria-hidden="true">
+                  <Cover
+                    src={article.cover}
+                    width={360}
+                    height={200}
+                    className="border-b border-border"
+                  />
+                </Link>
+                <div className="flex flex-1 flex-col p-5">
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                    <Badge variant={article.tag === "Sponsored" ? "muted" : "default"}>
+                      {article.tag}
+                    </Badge>
+                    <span>{article.read_minutes} min read</span>
+                  </div>
+                  <Link to={`/feed/${article.slug}`} className="group mt-3">
+                    <h3 className="font-display text-lg font-bold leading-snug group-hover:text-primary">
+                      {article.title}
+                    </h3>
+                  </Link>
+                  <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">
+                    {article.excerpt}
+                  </p>
+                  <p className="mt-3 text-xs text-muted-foreground">{article.author}</p>
+                  <div className="mt-auto flex gap-2 pt-4">
+                    <Link to={`/feed/${article.slug}`} className="flex-1">
+                      <Button className="w-full" size="sm">
+                        Read
+                      </Button>
+                    </Link>
+                    <Button
+                      size="sm"
+                      variant={article.saved ? "outline" : "default"}
+                      onClick={() => void toggleArticle(article)}
+                      aria-pressed={article.saved}
+                      aria-label={article.saved ? "Remove from Saved" : `Save ${article.title}`}
+                    >
+                      <Bookmark
+                        className={cn("h-4 w-4", article.saved && "fill-current")}
+                        aria-hidden="true"
+                      />
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        )
+      ) : /* ---------------- videos / books / pdfs ---------------- */
+      visibleResources.length === 0 ? (
         <EmptyState
           icon={<Search className="h-8 w-8" />}
-          title="No resources match"
-          body="Try a different search term or clear the filter."
+          title="Nothing here matches"
+          body="Try a different search term, or clear the filters."
+          action={
+            activeFilters > 0 ? (
+              <Button variant="outline" onClick={clearFilters}>
+                Clear all
+              </Button>
+            ) : undefined
+          }
         />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">
-          {results.map((resource) => {
-            const Icon = KINDS[resource.kind].icon;
-            return (
-              <Card key={resource.id} className="flex gap-4 p-4 card-hover animate-fade-in">
-                <div className="w-20 shrink-0 overflow-hidden rounded-lg border border-border sm:w-24">
-                  <Cover src={resource.cover} width={180} height={240} />
-                </div>
-                <div className="flex min-w-0 flex-1 flex-col">
+          {visibleResources.map((resource) => (
+            <Card key={resource.id} className="flex gap-4 p-4 card-hover animate-fade-in">
+              <div className="relative w-24 shrink-0 overflow-hidden rounded-lg border border-border">
+                <Cover src={resource.cover} width={180} height={240} />
+                {resource.kind === "video" && (
+                  <span className="absolute inset-0 flex items-center justify-center bg-black/25">
+                    <Play className="h-6 w-6 fill-white text-white" aria-hidden="true" />
+                  </span>
+                )}
+              </div>
+
+              <div className="flex min-w-0 flex-1 flex-col">
                 <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant="muted">
-                    <Icon className="h-3 w-3" aria-hidden="true" />
-                    {KINDS[resource.kind].singular}
-                  </Badge>
+                  {resource.level && (
+                    <Badge variant="muted" className="capitalize">
+                      {resource.level}
+                    </Badge>
+                  )}
                   {resource.premium && (
                     <Badge variant="accent">
                       <Crown className="h-3 w-3" aria-hidden="true" />
@@ -268,103 +560,39 @@ export default function Library() {
                     <Star className="h-3.5 w-3.5 fill-warning text-warning" aria-hidden="true" />
                     {resource.rating}
                   </span>
-                  {resource.year ? <span>{resource.publisher} · {resource.year}</span> : null}
+                  {resource.topic && <span>{resource.topic}</span>}
+                  {resource.year ? <span>{resource.year}</span> : null}
                   {resource.pages ? <span>{resource.pages} pages</span> : null}
                   {resource.duration ? <span>{resource.duration}</span> : null}
                 </div>
 
                 <div className="mt-auto flex gap-2 pt-4">
-                  <Button className="flex-1" size="sm" onClick={() => setOpen(resource)}>
-                    Open<span className="sr-only"> {resource.title}</span>
+                  <Button
+                    className="flex-1"
+                    size="sm"
+                    disabled={!resource.url}
+                    title={resource.url ? undefined : "No file attached in this build"}
+                    onClick={() => resource.url && window.open(resource.url, "_blank", "noopener")}
+                  >
+                    {CTA[resource.kind] ?? "Open"}
+                    <span className="sr-only"> {resource.title}</span>
                   </Button>
                   <Button
                     size="sm"
                     variant={resource.saved ? "outline" : "default"}
-                    onClick={() => void toggleSave(resource)}
+                    onClick={() => void toggleResource(resource)}
                     aria-pressed={resource.saved}
-                    aria-label={resource.saved ? "Remove from Saved" : "Save to your collection"}
+                    aria-label={resource.saved ? "Remove from Saved" : `Save ${resource.title}`}
                   >
-                    <Bookmark className={cn("h-4 w-4", resource.saved && "fill-current")} />
-                    {resource.saved ? "Saved" : "Save"}
+                    <Bookmark
+                      className={cn("h-4 w-4", resource.saved && "fill-current")}
+                      aria-hidden="true"
+                    />
                   </Button>
                 </div>
-                </div>
-              </Card>
-            );
-          })}
-        </div>
-      )}
-
-      {open && (
-        <div
-          className="fixed inset-0 z-[80] flex items-end justify-center bg-black/50 p-4 md:items-center"
-          role="dialog"
-          aria-modal="true"
-          aria-label={open.title}
-          onClick={() => setOpen(null)}
-        >
-          <Card
-            className="max-h-[85vh] w-full max-w-lg overflow-y-auto p-6 shadow-medium animate-fade-up"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <Badge variant="muted">{KINDS[open.kind].singular}</Badge>
-                <h2 className="mt-3 font-display text-xl font-bold">{open.title}</h2>
-                <p className="mt-1 text-sm text-muted-foreground">{open.author}</p>
               </div>
-              <button
-                onClick={() => setOpen(null)}
-                className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted"
-                aria-label="Close"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <p className="mt-4 text-sm">{open.description}</p>
-
-            <dl className="mt-5 grid grid-cols-2 gap-3 text-sm">
-              <div>
-                <dt className="text-muted-foreground">Rating</dt>
-                <dd className="font-semibold">{open.rating} / 5</dd>
-              </div>
-              <div>
-                <dt className="text-muted-foreground">
-                  {open.kind === "video" ? "Length" : "Downloads"}
-                </dt>
-                <dd className="font-semibold">{open.duration || open.downloads}</dd>
-              </div>
-              <div>
-                <dt className="text-muted-foreground">Access</dt>
-                <dd className="font-semibold">{open.premium ? "Premium" : "All students"}</dd>
-              </div>
-              <div>
-                <dt className="text-muted-foreground">In your Saved</dt>
-                <dd className="font-semibold">{open.saved ? "Yes" : "No"}</dd>
-              </div>
-            </dl>
-
-            <div className="mt-6 flex flex-wrap gap-2">
-              {open.url ? (
-                <a href={open.url} target="_blank" rel="noreferrer" className="flex-1">
-                  <Button className="w-full">Open resource</Button>
-                </a>
-              ) : (
-                <p className="flex-1 rounded-xl border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
-                  Catalogue entry — no file is attached in this build, so there is nothing to
-                  download yet. Saving it still works.
-                </p>
-              )}
-              <Button
-                variant={open.saved ? "outline" : "default"}
-                onClick={() => void toggleSave(open)}
-              >
-                <Bookmark className={cn("h-4 w-4", open.saved && "fill-current")} />
-                {open.saved ? "Saved" : "Save"}
-              </Button>
-            </div>
-          </Card>
+            </Card>
+          ))}
         </div>
       )}
     </>

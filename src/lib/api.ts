@@ -31,6 +31,15 @@ export class ApiError extends Error {
   }
 }
 
+/** True only on public pages, where a stale token must not trigger a redirect loop. */
+function onPublicPage(): boolean {
+  return (
+    typeof window === "undefined" ||
+    window.location.pathname === "/login" ||
+    window.location.pathname === "/"
+  );
+}
+
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
   if (!headers.has("Content-Type") && init.body && typeof init.body === "string") {
@@ -40,6 +49,17 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (token) headers.set("Authorization", `Bearer ${token}`);
 
   const response = await fetch(`${BASE}${path}`, { ...init, headers });
+  if (response.status === 401) {
+    // The token is gone, expired, or was issued for a database that has since
+    // been replaced (a rotated secret or a reset volume invalidates every
+    // stored token at once). Staying on the page only produces more 401s, so
+    // drop the token and send the user to the login screen.
+    clearToken();
+    if (!onPublicPage()) {
+      window.location.assign("/login");
+    }
+    throw new ApiError(401, "Session expired — please sign in again");
+  }
   if (!response.ok) {
     let detail = response.statusText;
     try {
