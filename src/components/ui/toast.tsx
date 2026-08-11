@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
 import { AlertTriangle, CheckCircle2, Info, X } from "lucide-react";
+import { readPreferences } from "@/lib/preferences";
 import { cn } from "@/lib/utils";
 
 type Tone = "success" | "error" | "info";
@@ -28,6 +29,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
   const push = useCallback((message: string, tone: Tone = "success") => {
+    // Errors always surface; confirmations are the ones Settings can silence.
+    if (tone !== "error" && !readPreferences().toasts) return;
     const id = Date.now() + Math.random();
     setToasts((current) => [...current, { id, message, tone }]);
     window.setTimeout(

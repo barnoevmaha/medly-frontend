@@ -45,10 +45,13 @@ src/
     ui/                     button, card, badge, input, progress, avatar,
                             toast (success feedback), states (loading/empty/error)
     imaging/                FilmViewer, ImagingTabs
-  pages/                    Home, Dashboard, Article, Saved, Community,
-                            CommunityRoom, Challenges, ChallengeRun,
-                            Leaderboard, Premium, Profile, Learn, Course,
-                            Quiz, Imaging, Casebook, CaseReference, Governance
+    feed/                   ArticleFeed — full size on Your Feed, preview on Dashboard
+  lib/preferences.ts        theme, reduced motion, confirmation toasts
+  pages/                    Home, Dashboard, Feed, Article, Library, Saved,
+                            Settings, Community, CommunityRoom, Challenges,
+                            ChallengeRun, Leaderboard, Premium, Profile, Learn,
+                            Course, Quiz, Imaging, Casebook, CaseReference,
+                            Governance
 public/
   fonts/                    Inter 300–700, Plus Jakarta Sans 500–700 (self-hosted)
   avatar.jpg
@@ -60,16 +63,20 @@ public/
 |---|---|---|
 | `/` | Home | standalone marketing page, own top nav |
 | `/dashboard` | Dashboard | app shell |
+| `/feed` | Your Feed | app shell |
 | `/feed/:slug` | Article + comments | app shell |
 | `/community` `/community/:slug` | Community list, community chat | app shell |
 | `/challenges` `/challenges/:slug` | Challenge list, challenge runner | app shell |
-| `/saved` | Saved collection + library browser | app shell |
+| `/library` | Library catalogue (books, PDFs, videos) | app shell |
+| `/saved` | Saved collection across all four types | app shell |
+| `/settings` | Account, security, privacy, appearance | app shell |
 | `/leaderboard` | Ranking by points | app shell |
 | `/premium` | Premium | app shell |
 | `/profile` | Profile (`?tab=badges` deep-links) | app shell |
 | `/imaging` `/imaging/cases` `/imaging/cases/:id` | Workbench, case references | app shell |
 
-`/library` redirects to `/saved`.
+Library and Saved are separate sections: Library is the catalogue, Saved is what
+this user kept. Saving from Library never removes anything from it.
 
 ## What works
 
@@ -78,7 +85,9 @@ Every interaction below is backed by an API call, not local state:
 - Dashboard — full-text feed search (server-side, searches article bodies), like,
   save, share-copies-link, comment jumps to the article's comment section
 - Article — full body, comment thread, save and share
-- Saved — articles, books, PDFs and videos in one collection; remove; browse tab
+- Library — search, type tiles, resource detail, save without leaving Library
+- Saved — articles, PDFs, books and videos in one collection, with remove
+- Settings — account edits, password change, leaderboard visibility, dark mode
 - Community — search scoped to name and description, join/leave, chat
 - Challenges — join opens the real question set; per-question feedback and points
 - Profile — rank, badges, joined communities, activity, all from real rows
@@ -88,8 +97,9 @@ Every interaction below is backed by an API call, not local state:
 
 - Icons are `lucide-react`, imported per-icon so only what you use is bundled.
 - Fonts are self-hosted in `public/fonts` — no external requests, no layout shift.
-- No dark theme yet. To add one, define a `.dark` block in `index.css` overriding
-  the same variables and toggle the class on `<html>`.
+- Dark theme lives in the `.dark` block in `index.css` — the same variables with
+  different values. `src/lib/preferences.ts` toggles the class on `<html>` and is
+  applied in `main.tsx` before the first paint, so there is no flash of light.
 - Deploying to a static host: the app uses `BrowserRouter`, so configure a
   catch-all rewrite to `/index.html` (Netlify `_redirects`, Vercel `rewrites`,
   or `try_files` in nginx). Otherwise use `HashRouter`.

@@ -1,5 +1,5 @@
 import { NavLink } from "react-router-dom";
-import { Crown, LogOut } from "lucide-react";
+import { Bookmark, Crown, LogOut } from "lucide-react";
 import { navItems, site } from "@/config/site";
 import { useSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
@@ -47,6 +47,20 @@ export function Sidebar() {
       </nav>
 
       <div className="space-y-1 border-t border-border p-3">
+        <NavLink
+          to="/saved"
+          className={({ isActive }) =>
+            cn(
+              "flex items-center gap-3 rounded-xl px-4 py-3 transition-colors",
+              isActive
+                ? "bg-primary/10 text-primary"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            )
+          }
+        >
+          <Bookmark className="h-5 w-5" />
+          <span className="font-medium">Saved</span>
+        </NavLink>
         {me && (
           <div className="px-4 py-2">
             <p className="truncate text-sm font-semibold">{me.full_name}</p>

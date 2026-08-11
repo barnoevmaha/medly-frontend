@@ -4,7 +4,8 @@
    ============================================================= */
 
 import {
-  House, Users, Trophy, Bookmark, User, GraduationCap, ShieldCheck, Scan,
+  House, Users, Trophy, BookOpen, Newspaper, Settings, User, GraduationCap,
+  ShieldCheck, Scan,
   type LucideIcon,
 } from "lucide-react";
 
@@ -20,11 +21,16 @@ export type NavItem = { label: string; to: string; icon: LucideIcon };
 
 export const navItems: NavItem[] = [
   { label: "Dashboard", to: "/dashboard", icon: House },
-  { label: "Community", to: "/community", icon: Users },
+  { label: "Your Feed", to: "/feed", icon: Newspaper },
+  { label: "Communities", to: "/community", icon: Users },
   { label: "Challenges", to: "/challenges", icon: Trophy },
-  { label: "Saved", to: "/saved", icon: Bookmark },
+  { label: "Library", to: "/library", icon: BookOpen },
   { label: "AI Training", to: "/learn", icon: GraduationCap },
   { label: "Imaging", to: "/imaging", icon: Scan },
   { label: "Governance", to: "/governance", icon: ShieldCheck },
+  { label: "Settings", to: "/settings", icon: Settings },
   { label: "Profile", to: "/profile", icon: User },
 ];
+
+/** The bottom bar holds four; everything else lives behind "More". */
+export const MOBILE_PRIMARY = ["/dashboard", "/feed", "/community", "/challenges"];

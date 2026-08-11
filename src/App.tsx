@@ -4,12 +4,15 @@ import { SessionProvider } from "@/lib/session";
 import { ToastProvider } from "@/components/ui/toast";
 import Home from "@/pages/Home";
 import Dashboard from "@/pages/Dashboard";
+import Feed from "@/pages/Feed";
 import Article from "@/pages/Article";
 import Community from "@/pages/Community";
 import CommunityRoom from "@/pages/CommunityRoom";
 import Challenges from "@/pages/Challenges";
 import ChallengeRun from "@/pages/ChallengeRun";
+import Library from "@/pages/Library";
 import Saved from "@/pages/Saved";
+import Settings from "@/pages/Settings";
 import Leaderboard from "@/pages/Leaderboard";
 import Premium from "@/pages/Premium";
 import Profile from "@/pages/Profile";
@@ -32,15 +35,17 @@ export default function App() {
             <Route path="/login" element={<Login />} />
             <Route element={<AppLayout />}>
               <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/feed" element={<Feed />} />
               <Route path="/feed/:slug" element={<Article />} />
               <Route path="/community" element={<Community />} />
               <Route path="/community/:slug" element={<CommunityRoom />} />
               <Route path="/challenges" element={<Challenges />} />
               <Route path="/challenges/:slug" element={<ChallengeRun />} />
+              {/* Library is the catalogue of what exists; Saved is what this
+                  user kept. Separate sections, separate routes. */}
+              <Route path="/library" element={<Library />} />
               <Route path="/saved" element={<Saved />} />
-              {/* Library became Saved. The old path still resolves so shared
-                  links and muscle memory do not 404. */}
-              <Route path="/library" element={<Navigate to="/saved" replace />} />
+              <Route path="/settings" element={<Settings />} />
               <Route path="/leaderboard" element={<Leaderboard />} />
               <Route path="/premium" element={<Premium />} />
               <Route path="/profile" element={<Profile />} />

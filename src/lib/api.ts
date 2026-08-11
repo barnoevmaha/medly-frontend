@@ -70,6 +70,7 @@ export interface Me {
   competency_score: number;
   points: number;
   is_premium: boolean;
+  show_on_leaderboard: boolean;
 }
 
 export interface CourseSummary {
@@ -553,6 +554,21 @@ export const api = {
   },
 
   me: () => request<Me>("/api/auth/me"),
+
+  /* settings */
+  updateMe: (payload: {
+    full_name?: string;
+    institution?: string;
+    year_of_study?: number;
+    show_on_leaderboard?: boolean;
+  }) => request<Me>("/api/auth/me", { method: "PATCH", body: JSON.stringify(payload) }),
+  changePassword: (current_password: string, new_password: string) =>
+    request<void>("/api/auth/password", {
+      method: "POST",
+      body: JSON.stringify({ current_password, new_password }),
+    }),
+  clearAssistantHistory: () =>
+    request<void>("/api/assistant/history", { method: "DELETE" }),
 
   courses: () => request<CourseSummary[]>("/api/courses"),
   course: (slug: string) => request<CourseDetail>(`/api/courses/${slug}`),

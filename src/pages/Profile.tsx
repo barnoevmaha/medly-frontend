@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
   Award, BookMarked, ChevronRight, Crown, GraduationCap, Lock, MessageSquare,
-  ShieldCheck, Trophy, Users,
+  Settings as SettingsIcon, ShieldCheck, Trophy, Users,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -147,6 +147,12 @@ export default function Profile() {
               <Button variant="outline">
                 <Trophy className="h-4 w-4" />
                 Rank
+              </Button>
+            </Link>
+            <Link to="/settings">
+              <Button variant="outline">
+                <SettingsIcon className="h-4 w-4" />
+                Settings
               </Button>
             </Link>
             {!profile.is_premium && (
