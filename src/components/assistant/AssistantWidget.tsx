@@ -1,29 +1,50 @@
-import { useEffect, useRef, useState } from "react";
-import { Bot, X, Send, ShieldAlert, Loader2, Info, Maximize2 } from "lucide-react";
-import { Link } from "react-router-dom";
-import { api, type ChatResponse, type RiskLevel } from "@/lib/api";
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  Bot, Check, Copy, FileText, Info, Loader2, RotateCcw, Send, ShieldAlert,
+  Sparkles, X,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Markdown } from "@/components/ui/markdown";
+import { useAiContext } from "@/lib/ai-context";
+import { api, ApiError, type ChatResponse, type QuickAction, type RiskLevel } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
-/* The fixed-corner study assistant.
-   Every reply arrives already carrying its disclaimer from the server — the
-   client cannot strip it, and a refusal renders differently on purpose. */
+/* Medly AI — the fixed-corner assistant.
+   One entry point, everywhere in the app. It knows what page you are on: the
+   article, challenge or library item you have open registers itself through
+   `useProvideAiContext`, and the server resolves the real content from its own
+   rows. Every reply arrives already carrying its disclaimer from the server —
+   the client cannot strip it, and a refusal renders differently on purpose. */
 
 interface Message {
+  id: number;
   role: "user" | "assistant";
   content: string;
   blocked?: boolean;
   riskLevel?: RiskLevel;
+  /** What produced this answer, so Retry can resend exactly that. */
+  source?: { text?: string; action?: QuickAction };
 }
 
+let nextId = 1;
+
 const GREETING: Message = {
+  id: 0,
   role: "assistant",
   content:
-    "I'm your study assistant. I explain how medical AI works and where it fails — " +
-    "automation bias, calibration, dataset shift, saliency maps, ethics and regulation.\n\n" +
-    "I won't diagnose or give treatment advice, and I'll refuse anything containing " +
-    "patient identifiers. That's by design, not a limitation I'm apologising for.",
+    "I'm Medly AI, your medical learning assistant. Ask me to explain a mechanism, " +
+    "compare two conditions, walk through a drug class, or quiz you before an exam.\n\n" +
+    "I explain for learning — I don't diagnose, prescribe, or accept patient identifiers.",
 };
+
+const FOLLOW_UPS: Array<{ action: QuickAction; label: string }> = [
+  { action: "simpler", label: "Simpler" },
+  { action: "deeper", label: "Deeper" },
+  { action: "example", label: "Example" },
+  { action: "mcq", label: "MCQs" },
+  { action: "case", label: "Case" },
+  { action: "quiz", label: "Quiz me" },
+];
 
 function riskChip(risk: RiskLevel) {
   const map: Record<RiskLevel, string> = {
@@ -35,24 +56,27 @@ function riskChip(risk: RiskLevel) {
   return map[risk];
 }
 
-/** Minimal markdown: **bold**, `code`, and paragraph breaks. */
-function renderText(text: string) {
-  return text.split("\n").map((line, index) => {
-    if (line.trim() === "---") return <hr key={index} className="my-2 border-border" />;
-    const html = line
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-      .replace(/`(.+?)`/g, '<code class="rounded bg-muted px-1 py-0.5 text-[0.85em]">$1</code>')
-      .replace(/_(.+?)_/g, "<em>$1</em>");
-    return (
-      <p
-        key={index}
-        className={cn("min-h-[0.5rem]", line.startsWith("- ") && "pl-3")}
-        dangerouslySetInnerHTML={{ __html: html }}
-      />
-    );
-  });
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={async () => {
+        try {
+          await navigator.clipboard.writeText(text);
+          setCopied(true);
+          window.setTimeout(() => setCopied(false), 1500);
+        } catch {
+          /* clipboard unavailable — the button simply does not confirm */
+        }
+      }}
+      aria-label={copied ? "Copied" : "Copy answer"}
+      className="inline-flex items-center gap-1 rounded-lg px-1.5 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
+    >
+      {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+      {copied ? "Copied" : "Copy"}
+    </button>
+  );
 }
 
 export function AssistantWidget() {
@@ -63,6 +87,9 @@ export function AssistantWidget() {
   const [sessionId, setSessionId] = useState<string | undefined>();
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  const { context } = useAiContext();
 
   useEffect(() => {
     if (!open || suggestions.length) return;
@@ -73,167 +100,316 @@ export function AssistantWidget() {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, busy]);
 
-  async function send(text: string) {
-    const question = text.trim();
-    if (!question || busy) return;
+  // Focus the composer when the panel opens; Escape closes it.
+  useEffect(() => {
+    if (!open) return;
+    const timer = window.setTimeout(() => inputRef.current?.focus(), 120);
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
 
-    setMessages((prev) => [...prev, { role: "user", content: question }]);
+  const send = useCallback(
+    async (payload: { text?: string; action?: QuickAction }) => {
+      const question = payload.text?.trim();
+      if (busy || (!question && !payload.action)) return;
+
+      if (question) {
+        setMessages((prev) => [...prev, { id: nextId++, role: "user", content: question }]);
+        setInput("");
+      }
+      setBusy(true);
+
+      try {
+        const reply: ChatResponse = await api.chat(question ?? "", {
+          sessionId,
+          action: payload.action,
+          contextKind: context?.kind,
+          contextKey: context?.key,
+          contextNote: context?.note,
+        });
+        setSessionId(reply.session_id);
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: nextId++,
+            role: "assistant",
+            content: reply.reply,
+            blocked: reply.blocked,
+            riskLevel: reply.risk_level,
+            source: payload,
+          },
+        ]);
+      } catch (error) {
+        // The server already turned provider failures into safe copy.
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: nextId++,
+            role: "assistant",
+            content:
+              error instanceof ApiError && error.message
+                ? error.message
+                : "Could not reach Medly AI. Check your connection and try again.",
+            source: payload,
+          },
+        ]);
+      } finally {
+        setBusy(false);
+        inputRef.current?.focus();
+      }
+    },
+    [busy, sessionId, context]
+  );
+
+  function reset() {
+    setMessages([GREETING]);
+    setSessionId(undefined);
     setInput("");
-    setBusy(true);
+    inputRef.current?.focus();
+  }
 
-    try {
-      const reply: ChatResponse = await api.chat(question, sessionId);
-      setSessionId(reply.session_id);
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content: reply.reply,
-          blocked: reply.blocked,
-          riskLevel: reply.risk_level,
-        },
-      ]);
-    } catch (error) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content:
-            error instanceof Error && error.message
-              ? `Could not reach the assistant: ${error.message}`
-              : "Could not reach the assistant. Check that the API is running and reachable.",
-        },
-      ]);
-    } finally {
-      setBusy(false);
+  function onKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>) {
+    // Enter sends, Shift+Enter breaks the line.
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      void send({ text: input });
     }
   }
 
+  const started = messages.length > 1;
+
   return (
     <>
-      {/* launcher */}
+      {/* launcher — same position, size and gradient as before */}
       <button
         onClick={() => setOpen((v) => !v)}
-        aria-label={open ? "Close study assistant" : "Open study assistant"}
+        aria-label={open ? "Close Medly AI" : "Open Medly AI"}
+        aria-expanded={open}
         className={cn(
-          "fixed bottom-24 right-4 z-[60] flex h-14 w-14 items-center justify-center rounded-2xl",
-          "gradient-primary text-primary-foreground shadow-glow transition-transform",
-          "hover:scale-105 active:scale-95 md:bottom-6 md:right-6"
+          "group fixed bottom-24 right-4 z-[60] flex h-14 w-14 items-center justify-center rounded-2xl",
+          "gradient-primary text-primary-foreground shadow-glow",
+          "transition-all duration-200 hover:scale-105 hover:shadow-xl active:scale-95",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2",
+          "md:bottom-6 md:right-6"
         )}
       >
-        {open ? <X className="h-6 w-6" /> : <Bot className="h-6 w-6" />}
+        {open ? (
+          <X className="h-6 w-6" />
+        ) : (
+          <Bot className="h-6 w-6 transition-transform duration-200 group-hover:-rotate-6" />
+        )}
+        {/* A quiet mark that the assistant can see the current page. */}
+        {!open && context && (
+          <span
+            className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-card shadow-soft"
+            aria-hidden="true"
+          >
+            <Sparkles className="h-2.5 w-2.5 text-primary" />
+          </span>
+        )}
       </button>
 
-      {open && (
-        <div
-          className={cn(
-            "fixed bottom-44 right-4 z-[60] flex w-[calc(100vw-2rem)] max-w-sm flex-col",
-            "overflow-hidden rounded-2xl border border-border bg-card shadow-medium",
-            "md:bottom-24 md:right-6",
-            "h-[min(32rem,calc(100vh-16rem))] md:h-[min(34rem,calc(100vh-10rem))]"
-          )}
-        >
-          <header className="flex items-center gap-3 border-b border-border px-4 py-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl gradient-primary">
-              <Bot className="h-5 w-5 text-primary-foreground" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="font-display text-sm font-bold">Medly AI</div>
-              <div className="text-xs text-muted-foreground">Educational use · every reply logged</div>
-            </div>
-            {/* Same conversation, more room. */}
-            <Link
-              to="/ai"
-              onClick={() => setOpen(false)}
-              aria-label="Open Medly AI full page"
-              className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            >
-              <Maximize2 className="h-4 w-4" aria-hidden="true" />
-            </Link>
-          </header>
+      {/* scrim, small screens only — the panel covers the page there */}
+      <div
+        onClick={() => setOpen(false)}
+        aria-hidden="true"
+        className={cn(
+          "fixed inset-0 z-[55] bg-black/40 transition-opacity duration-200 md:hidden",
+          open ? "opacity-100" : "pointer-events-none opacity-0"
+        )}
+      />
 
-          <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
-            {messages.map((message, index) => (
-              <div
-                key={index}
-                className={cn("flex", message.role === "user" ? "justify-end" : "justify-start")}
-              >
-                <div
-                  className={cn(
-                    "max-w-[92%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed",
-                    message.role === "user"
-                      ? "gradient-primary text-primary-foreground"
-                      : message.blocked
-                        ? "border border-destructive/30 bg-destructive/5"
-                        : "bg-muted"
-                  )}
-                >
-                  {message.blocked && (
-                    <div className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-destructive">
-                      <ShieldAlert className="h-3.5 w-3.5" />
-                      Blocked by safety rules
-                    </div>
-                  )}
-                  <div className="space-y-1.5">{renderText(message.content)}</div>
-                  {message.role === "assistant" && message.riskLevel && !message.blocked && (
-                    <span
-                      className={cn(
-                        "mt-2 inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
-                        riskChip(message.riskLevel)
-                      )}
-                    >
-                      {message.riskLevel} risk
-                    </span>
-                  )}
-                </div>
-              </div>
-            ))}
-
-            {busy && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Thinking…
-              </div>
-            )}
-
-            {messages.length === 1 && suggestions.length > 0 && (
-              <div className="space-y-1.5 pt-2">
-                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <Info className="h-3.5 w-3.5" />
-                  Try one of these
-                </div>
-                {suggestions.map((suggestion) => (
-                  <button
-                    key={suggestion}
-                    onClick={() => send(suggestion)}
-                    className="w-full rounded-xl border border-border bg-background px-3 py-2 text-left text-xs transition-colors hover:bg-muted"
-                  >
-                    {suggestion}
-                  </button>
-                ))}
-              </div>
-            )}
+      {/* panel */}
+      <div
+        role="dialog"
+        aria-label="Medly AI"
+        className={cn(
+          "fixed bottom-44 right-4 z-[60] flex w-[calc(100vw-2rem)] max-w-md flex-col",
+          "overflow-hidden rounded-2xl border border-border bg-card shadow-medium",
+          "origin-bottom-right transition-all duration-200 ease-out",
+          "md:bottom-24 md:right-6",
+          "h-[min(34rem,calc(100vh-16rem))] md:h-[min(38rem,calc(100vh-10rem))]",
+          open
+            ? "pointer-events-auto translate-y-0 scale-100 opacity-100"
+            : "pointer-events-none translate-y-2 scale-95 opacity-0"
+        )}
+      >
+        <header className="flex items-center gap-3 border-b border-border px-4 py-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl gradient-primary">
+            <Bot className="h-5 w-5 text-primary-foreground" />
           </div>
-
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              send(input);
-            }}
-            className="flex items-center gap-2 border-t border-border p-3"
+          <div className="min-w-0 flex-1">
+            <div className="font-display text-sm font-bold">Medly AI</div>
+            <div className="truncate text-xs text-muted-foreground">
+              Your medical learning assistant
+            </div>
+          </div>
+          {started && (
+            <button
+              onClick={reset}
+              className="rounded-lg px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              New chat
+            </button>
+          )}
+          <button
+            onClick={() => setOpen(false)}
+            aria-label="Close Medly AI"
+            className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
-            <input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask about AI in medicine…"
-              className="h-10 flex-1 rounded-xl border border-input bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring/40"
-            />
-            <Button type="submit" size="icon" disabled={busy || !input.trim()}>
-              <Send className="h-4 w-4" />
-            </Button>
-          </form>
+            <X className="h-4 w-4" />
+          </button>
+        </header>
+
+        {/* What the assistant can see. Never invisible to the user. */}
+        {context && (
+          <div className="flex items-center gap-2 border-b border-border bg-primary/5 px-4 py-2 text-xs">
+            <FileText className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden="true" />
+            <span className="truncate text-muted-foreground">
+              Using <span className="font-semibold text-foreground">{context.label}</span> as
+              context
+            </span>
+          </div>
+        )}
+
+        <div
+          ref={scrollRef}
+          className="flex-1 space-y-3 overflow-y-auto px-4 py-4"
+          role="log"
+          aria-live="polite"
+        >
+          {messages.map((message) => (
+            <div
+              key={message.id}
+              className={cn("flex", message.role === "user" ? "justify-end" : "justify-start")}
+            >
+              <div
+                className={cn(
+                  "max-w-[92%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed",
+                  message.role === "user"
+                    ? "gradient-primary text-primary-foreground"
+                    : message.blocked
+                      ? "border border-destructive/30 bg-destructive/5"
+                      : "bg-muted"
+                )}
+              >
+                {message.blocked && (
+                  <div className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-destructive">
+                    <ShieldAlert className="h-3.5 w-3.5" />
+                    Blocked by safety rules
+                  </div>
+                )}
+
+                {message.role === "user" ? (
+                  <p className="whitespace-pre-wrap">{message.content}</p>
+                ) : (
+                  <Markdown>{message.content}</Markdown>
+                )}
+
+                {message.role === "assistant" && !message.blocked && message.id !== 0 && (
+                  <div className="mt-1.5 flex flex-wrap items-center gap-1 border-t border-border/60 pt-1.5">
+                    <CopyButton text={message.content} />
+                    <button
+                      type="button"
+                      onClick={() => void send(message.source ?? {})}
+                      disabled={busy || !message.source}
+                      className="inline-flex items-center gap-1 rounded-lg px-1.5 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-background hover:text-foreground disabled:opacity-40"
+                    >
+                      <RotateCcw className="h-3 w-3" />
+                      Retry
+                    </button>
+                    {message.riskLevel && (
+                      <span
+                        className={cn(
+                          "ml-auto rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+                          riskChip(message.riskLevel)
+                        )}
+                      >
+                        {message.riskLevel} risk
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+
+          {busy && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <span className="flex gap-1" aria-label="Medly AI is thinking">
+                <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-primary [animation-delay:-0.3s]" />
+                <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-primary [animation-delay:-0.15s]" />
+                <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-primary" />
+              </span>
+              Thinking…
+            </div>
+          )}
+
+          {!started && suggestions.length > 0 && (
+            <div className="space-y-1.5 pt-2">
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Info className="h-3.5 w-3.5" />
+                Try one of these
+              </div>
+              {suggestions.map((suggestion) => (
+                <button
+                  key={suggestion}
+                  onClick={() => setInput(suggestion)}
+                  className="w-full rounded-xl border border-border bg-background px-3 py-2 text-left text-xs transition-colors hover:border-primary/40 hover:bg-muted"
+                >
+                  {suggestion}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
-      )}
+
+        {started && !busy && (
+          <div className="flex gap-1.5 overflow-x-auto border-t border-border px-3 py-2 scrollbar-hide">
+            {FOLLOW_UPS.map(({ action, label }) => (
+              <button
+                key={action}
+                onClick={() => void send({ action })}
+                className="whitespace-nowrap rounded-full border border-border px-2.5 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:bg-muted hover:text-foreground"
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            void send({ text: input });
+          }}
+          className="flex items-end gap-2 border-t border-border p-3"
+        >
+          <label htmlFor="medly-ai-input" className="sr-only">
+            Ask Medly AI
+          </label>
+          <textarea
+            id="medly-ai-input"
+            ref={inputRef}
+            rows={1}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={onKeyDown}
+            maxLength={4000}
+            placeholder={context ? `Ask about ${context.label}…` : "Ask a medical question…"}
+            className="max-h-28 min-h-[2.5rem] flex-1 resize-none rounded-xl border border-input bg-background px-3 py-2 text-sm outline-none transition-shadow focus:ring-2 focus:ring-ring/40"
+          />
+          <Button type="submit" size="icon" disabled={busy || !input.trim()}>
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+          </Button>
+        </form>
+      </div>
     </>
   );
 }

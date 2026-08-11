@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { ErrorState, LoadingState } from "@/components/ui/states";
 import { useLanguage } from "@/lib/i18n";
+import { useProvideAiContext } from "@/lib/ai-context";
 import { api, type LibraryResource } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
@@ -25,6 +26,11 @@ export default function Read() {
   const [resource, setResource] = useState<LibraryResource | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // The library item on screen becomes the assistant's context.
+  useProvideAiContext(
+    resource ? { kind: "resource", key: resource.slug, label: resource.title } : null
+  );
 
   async function load() {
     setLoading(true);

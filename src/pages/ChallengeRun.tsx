@@ -13,6 +13,7 @@ import { Icon } from "@/components/ui/icon";
 import { FilmViewer } from "@/components/imaging/FilmViewer";
 import { useSession } from "@/lib/session";
 import { useLanguage } from "@/lib/i18n";
+import { useProvideAiContext } from "@/lib/ai-context";
 import { api, type AnswerResult, type ChallengeDetail } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
@@ -62,6 +63,34 @@ export default function ChallengeRun() {
   }, [load, lang]);
 
   const question = challenge?.questions[index];
+
+  /* Medly AI sees the question on screen and how it went, so "explain that"
+     means this question. The challenge title and description come from the
+     server's own rows; only the transient bit travels from here, and the
+     answer is only named once the student has actually answered — the
+     assistant is not a way to skip the question. */
+  useProvideAiContext(
+    challenge && question
+      ? {
+          kind: "challenge",
+          key: challenge.slug,
+          label: challenge.title,
+          note: [
+            `Question ${index + 1} of ${challenge.questions.length}: ${question.prompt}`,
+            `Options: ${question.choices.map((c) => c.text).join(" | ")}`,
+            question.answered
+              ? `The student answered ${
+                  question.correct ? "correctly" : "incorrectly"
+                }. They chose: ${
+                  question.choices.find((c) => c.id === question.chosen_choice_id)?.text ?? "—"
+                }. The correct answer is: ${
+                  question.choices.find((c) => c.id === question.correct_choice_id)?.text ?? "—"
+                }.`
+              : "The student has not answered yet — do not give the answer away.",
+          ].join("\n"),
+        }
+      : null
+  );
 
   // Deliberately keyed on the question, not on `challenge` — submitting an
   // answer replaces the challenge object, and depending on it here would

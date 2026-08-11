@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import {
-  ArrowLeft, Bookmark, Clock, Heart, Loader2, MessageCircle, Send, Share2,
-  Sparkles, Trash2,
+  ArrowLeft, Bookmark, Clock, Heart, Loader2, MessageCircle, Send, Share2, Trash2,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +13,7 @@ import { Cover } from "@/components/ui/cover";
 import { useToast } from "@/components/ui/toast";
 import { ErrorState, LoadingState } from "@/components/ui/states";
 import { useLanguage } from "@/lib/i18n";
+import { useProvideAiContext } from "@/lib/ai-context";
 import { api, type ArticleDetail } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
@@ -59,6 +59,11 @@ export default function Article() {
 
   const commentsRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
+
+  // Medly AI picks this up: the slug travels, the server fetches the body.
+  useProvideAiContext(
+    article ? { kind: "article", key: article.slug, label: article.title } : null
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -239,14 +244,6 @@ export default function Article() {
               <Bookmark className={cn("h-4 w-4", article.saved && "fill-current")} />
               {article.saved ? t("common.saved") : t("common.save")}
             </Button>
-            {/* Carries the slug, not the body — the server looks the article up
-                and trims it to a token budget before it reaches the model. */}
-            <Link to={`/ai?article=${article.slug}`}>
-              <Button size="sm" variant="outline">
-                <Sparkles className="h-4 w-4" />
-                Ask Medly AI
-              </Button>
-            </Link>
           </div>
         </div>
 

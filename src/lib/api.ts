@@ -157,9 +157,12 @@ export type QuickAction =
 
 export interface ChatOptions {
   sessionId?: string;
-  /** Ground the answer in one article the reader is on. */
-  articleSlug?: string;
   action?: QuickAction;
+  /** Page grounding. The server resolves the real content from these. */
+  contextKind?: "article" | "resource" | "challenge";
+  contextKey?: string;
+  /** On-screen state only the client knows. Capped server-side. */
+  contextNote?: string;
 }
 
 export interface AuditEvent {
@@ -643,8 +646,10 @@ export const api = {
       body: JSON.stringify({
         message,
         session_id: opts.sessionId,
-        article_slug: opts.articleSlug,
         action: opts.action,
+        context_kind: opts.contextKind,
+        context_key: opts.contextKey,
+        context_note: opts.contextNote,
       }),
     });
   },
