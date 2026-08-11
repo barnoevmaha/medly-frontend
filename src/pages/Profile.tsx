@@ -2,13 +2,14 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
   Award, BookMarked, ChevronRight, Crown, GraduationCap, Lock, MessageSquare,
-  Settings as SettingsIcon, Trophy, Users,
+  Trophy, Users,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
 import { Icon } from "@/components/ui/icon";
+import { PremiumButton } from "@/components/ui/premium-button";
 import { ErrorState, LoadingState } from "@/components/ui/states";
 import {
   api,
@@ -115,6 +116,7 @@ export default function Profile() {
       <Card className="mb-8 p-6 shadow-medium animate-fade-up md:p-8">
         <div className="flex flex-col gap-6 md:flex-row md:items-center">
           <Avatar
+            src={profile.avatar_url || undefined}
             name={profile.name}
             className="h-24 w-24 border-4 border-card text-2xl md:h-28 md:w-28"
           />
@@ -144,17 +146,7 @@ export default function Profile() {
                 Rank
               </Button>
             </Link>
-            <Link to="/settings">
-              <Button variant="outline">
-                <SettingsIcon className="h-4 w-4" />
-                Settings
-              </Button>
-            </Link>
-            {!profile.is_premium && (
-              <Link to="/premium">
-                <Button variant="accent">Upgrade</Button>
-              </Link>
-            )}
+            {!profile.is_premium && <PremiumButton />}
           </div>
         </div>
       </Card>

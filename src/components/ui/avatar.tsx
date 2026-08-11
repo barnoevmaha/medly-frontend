@@ -5,6 +5,7 @@ export function Avatar({
   name,
   className,
 }: {
+  /** Uploaded picture (data URL) or a path. Falls back to initials. */
   src?: string;
   name: string;
   className?: string;

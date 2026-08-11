@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { Crown, LogOut, MoreHorizontal, Settings, User, X } from "lucide-react";
+import { LogOut, MoreHorizontal, Settings, User, X } from "lucide-react";
 import { MOBILE_PRIMARY, navItems, staffNavItems } from "@/config/site";
 import { Avatar } from "@/components/ui/avatar";
+import { PremiumButton } from "@/components/ui/premium-button";
 import { useSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
@@ -47,7 +48,7 @@ export function MobileNav() {
           <div className="mb-3 flex items-center justify-between gap-3">
             {me && (
               <div className="flex min-w-0 items-center gap-3">
-                <Avatar name={me.full_name} className="h-9 w-9 shrink-0 text-xs" />
+                <Avatar src={me.avatar_url || undefined} name={me.full_name} className="h-9 w-9 shrink-0 text-xs" />
                 <div className="min-w-0">
                   <p className="truncate font-semibold">{me.full_name}</p>
                   <p className="truncate text-xs text-muted-foreground">
@@ -82,16 +83,8 @@ export function MobileNav() {
                 </li>
               ))}
             {!me?.is_premium && (
-              <li>
-                <NavLink
-                  to="/premium"
-                  className={({ isActive }) =>
-                    cn(sheetItemClass(isActive), "text-accent hover:bg-accent/10")
-                  }
-                >
-                  <Crown className="h-5 w-5" aria-hidden="true" />
-                  Go Premium
-                </NavLink>
+              <li className="px-1 py-2">
+                <PremiumButton className="w-full" />
               </li>
             )}
             <li>

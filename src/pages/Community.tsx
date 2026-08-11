@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
-  Check, Crown, Loader2, Lock, MessageSquare, Plus, Search, Users, X,
+  Check, Loader2, Lock, MessageSquare, Plus, Search, Users, X,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +10,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Icon } from "@/components/ui/icon";
+import { PremiumButton } from "@/components/ui/premium-button";
+import { Cover } from "@/components/ui/cover";
 import { useToast } from "@/components/ui/toast";
 import { EmptyState, ErrorState, SkeletonCard } from "@/components/ui/states";
 import { ApiError, api, type CommunityPermissions, type CommunitySummary } from "@/lib/api";
@@ -119,12 +121,7 @@ export default function Community() {
               {composing ? "Cancel" : "Create Community"}
             </Button>
           ) : (
-            <Link to="/premium">
-              <Button variant="outline">
-                <Crown className="h-4 w-4" />
-                Premium to create
-              </Button>
-            </Link>
+            <PremiumButton label="Premium to create" />
           )
         }
       />
@@ -140,12 +137,7 @@ export default function Community() {
                 Premium — and the rule is enforced by the API, so it holds for any client, not
                 just this page.
               </p>
-              <Link to="/premium">
-                <Button className="mt-3" size="sm" variant="accent">
-                  <Crown className="h-4 w-4" />
-                  See Premium
-                </Button>
-              </Link>
+              <PremiumButton className="mt-3" />
             </div>
           </div>
         </Card>
@@ -239,7 +231,19 @@ export default function Community() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">
           {communities.map((community) => (
-            <Card key={community.id} className="flex flex-col p-5 card-hover animate-fade-in">
+            <Card
+              key={community.id}
+              className="flex flex-col overflow-hidden p-0 card-hover animate-fade-in"
+            >
+              <Link to={`/community/${community.slug}`} tabIndex={-1} aria-hidden="true">
+                <Cover
+                  src={community.cover}
+                  width={360}
+                  height={160}
+                  className="border-b border-border"
+                />
+              </Link>
+              <div className="flex flex-1 flex-col p-5">
               <div className="flex items-start justify-between gap-3">
                 <Link to={`/community/${community.slug}`} className="group min-w-0">
                   <h3 className="flex items-center gap-2 font-display text-lg font-bold group-hover:text-primary">
@@ -271,7 +275,7 @@ export default function Community() {
                 </span>
               </div>
 
-              <div className="mt-5 flex gap-2">
+              <div className="mt-auto flex gap-2 pt-5">
                 <Link to={`/community/${community.slug}`} className="flex-1">
                   <Button className="w-full">Open chat</Button>
                 </Link>
@@ -281,6 +285,7 @@ export default function Community() {
                 >
                   {community.joined ? "Leave" : "Join"}
                 </Button>
+              </div>
               </div>
             </Card>
           ))}

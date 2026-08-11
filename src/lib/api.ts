@@ -86,6 +86,7 @@ export interface Me {
   role: Role;
   institution?: string | null;
   year_of_study?: number | null;
+  avatar_url: string;
   points: number;
   is_premium: boolean;
   show_on_leaderboard: boolean;
@@ -327,6 +328,8 @@ export interface LibraryResource {
   duration: string;
   premium: boolean;
   url: string;
+  video_url: string;
+  pdf_url: string;
   cover_hue: number;
   cover: string;
   publisher: string;
@@ -362,6 +365,7 @@ export interface CommunitySummary {
   description: string;
   specialty: string;
   icon: string;
+  cover: string;
   members: number;
   messages: number;
   joined: boolean;
@@ -420,6 +424,7 @@ export interface ChallengeSummary {
   description: string;
   topic: string;
   icon: string;
+  cover: string;
   difficulty: "easy" | "medium" | "hard" | string;
   points: number;
   question_count: number;
@@ -461,6 +466,7 @@ export interface Profile {
   role: Role;
   institution: string;
   year_of_study: number | null;
+  avatar_url: string;
   is_premium: boolean;
   points: number;
   streak_days: number;
@@ -491,6 +497,7 @@ export interface LeaderboardRow {
   name: string;
   institution: string;
   points: number;
+  avatar_url: string;
   you: boolean;
 }
 
@@ -583,6 +590,7 @@ export const api = {
     full_name?: string;
     institution?: string;
     year_of_study?: number;
+    avatar_url?: string;
     show_on_leaderboard?: boolean;
   }) => request<Me>("/api/auth/me", { method: "PATCH", body: JSON.stringify(payload) }),
   changePassword: (current_password: string, new_password: string) =>
