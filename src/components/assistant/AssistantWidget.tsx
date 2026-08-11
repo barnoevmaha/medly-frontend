@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Markdown } from "@/components/ui/markdown";
 import { StreamingAnswer } from "@/components/assistant/StreamingAnswer";
 import { useAiContext } from "@/lib/ai-context";
-import { api, ApiError, type QuickAction, type RiskLevel } from "@/lib/api";
+import { api, ApiError, traceStream, type QuickAction, type RiskLevel } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 /* Medly AI — the fixed-corner assistant.
@@ -192,6 +192,7 @@ export function AssistantWidget() {
         flushTimer.current = null;
         const buffered = pendingRef.current;
         if (!buffered) return;
+        traceStream("React flush", `chars=${buffered.length}`);
         pendingRef.current = "";
         setMessages((prev) =>
           prev.map((m) => (m.id === answerId ? { ...m, content: m.content + buffered } : m))

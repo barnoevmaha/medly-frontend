@@ -101,6 +101,34 @@ export interface StreamHandlers {
 }
 
 /**
+ * Millisecond-stamped stream tracing.
+ *
+ * Off unless you ask for it, so production consoles stay clean:
+ *   localStorage.setItem("medly.debug.stream", "1")   // then reload
+ *
+ * Read the timestamps to place the delay. If "network chunk" lines arrive
+ * spread out but "React flush" lines are bunched, the UI is at fault; if the
+ * network lines themselves all land at once, nothing before the browser
+ * streamed and the problem is upstream.
+ */
+const streamDebug = () => {
+  try {
+    return localStorage.getItem("medly.debug.stream") === "1";
+  } catch {
+    return false;
+  }
+};
+
+export function traceStream(stage: string, extra = "") {
+  if (!streamDebug()) return;
+  const now = new Date();
+  const stamp = `${now.toLocaleTimeString([], { hour12: false })}.${String(
+    now.getMilliseconds()
+  ).padStart(3, "0")}`;
+  console.log(`[AI-STREAM] ${stamp} ${stage}${extra ? ` ${extra}` : ""}`);
+}
+
+/**
  * Consume the SSE stream from `/api/assistant/chat/stream`.
  *
  * `fetch` rather than `EventSource`, because this is a POST and needs the
@@ -123,6 +151,9 @@ async function streamChat(
   if (token) headers.set("Authorization", `Bearer ${token}`);
 
   let received = false;
+  const t0 = performance.now();
+  const since = () => `+${Math.round(performance.now() - t0)}ms`;
+  traceStream("request sent", `-> ${BASE}/api/assistant/chat/stream`);
 
   const response = await fetch(`${BASE}/api/assistant/chat/stream`, {
     method: "POST",
@@ -137,6 +168,13 @@ async function streamChat(
       context_note: options.contextNote,
     }),
   });
+
+  traceStream(
+    "response headers",
+    `${since()} status=${response.status} type=${response.headers.get(
+      "content-type"
+    )} encoding=${response.headers.get("content-encoding") ?? "none"}`
+  );
 
   if (response.status === 401) {
     clearToken();
@@ -164,6 +202,7 @@ async function streamChat(
     for (;;) {
       const { done, value } = await reader.read();
       if (done) break;
+      traceStream("network chunk", `${since()} bytes=${value?.byteLength ?? 0}`);
       buffer += decoder.decode(value, { stream: true });
 
       // Frames are separated by a blank line. A partial frame stays in the
@@ -188,6 +227,8 @@ async function streamChat(
         } catch {
           continue;
         }
+
+        traceStream("parsed frame", `${since()} event=${event}`);
 
         if (event === "start") handlers.onStart?.(String(data.session_id ?? ""));
         else if (event === "chunk") {
