@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { StatRow } from "@/components/ui/stat-tile";
 import { Avatar } from "@/components/ui/avatar";
 import { Cover } from "@/components/ui/cover";
 import { EmptyState, ErrorState, SkeletonCard } from "@/components/ui/states";
@@ -118,17 +119,9 @@ export default function Challenges() {
 
       {error && <ErrorState message={error} onRetry={() => void load()} />}
 
-      <div className="mb-10 grid gap-4 sm:grid-cols-3">
+      <div className="mb-10 grid grid-cols-1 gap-5 sm:grid-cols-3">
         {stats.map((stat) => (
-          <Card key={stat.label} className="flex items-center gap-4 p-5 card-hover">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <stat.icon className="h-6 w-6" aria-hidden="true" />
-            </div>
-            <div>
-              <div className="font-display text-2xl font-bold">{stat.value}</div>
-              <div className="text-sm text-muted-foreground">{stat.label}</div>
-            </div>
-          </Card>
+          <StatRow key={stat.label} icon={stat.icon} value={stat.value} label={stat.label} />
         ))}
       </div>
 

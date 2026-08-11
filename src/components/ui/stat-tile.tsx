@@ -1,56 +1,128 @@
 import { Flame, Star, Target, Trophy, type LucideIcon } from "lucide-react";
+import { Card } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
 /**
- * Stat tiles — one definition, used by Dashboard, Challenges and Profile.
+ * Stat tiles — one definition, two layouts.
+ *
+ * `StatCard` is the stacked form (icon top-left, then label, value, detail)
+ * used by the Dashboard, where each stat carries its own accent so the four
+ * cards read as four different things at a glance.
+ *
+ * `StatRow` is the horizontal form (icon left, value and label right) used by
+ * Challenges, where the three numbers are the same kind of thing and share
+ * one teal accent.
  *
  * Colours are fixed per stat so the same number always looks the same wherever
- * it appears. Hex rather than theme tokens because these four are brand-level
- * constants, specified alongside the icons.
+ * it appears. Hex rather than theme tokens because these are brand-level
+ * constants specified alongside the icons.
  */
 export type StatKey = "rank" | "streak" | "points" | "badges";
 
-export const STAT_STYLE: Record<
-  StatKey,
-  { icon: LucideIcon; color: string; background: string; label: string }
-> = {
-  rank: { icon: Trophy, color: "#D97706", background: "#FEF3E2", label: "Rank" },
-  streak: { icon: Flame, color: "#EA580C", background: "#FEE2E0", label: "Streak" },
-  points: { icon: Target, color: "#059669", background: "#E6F4EE", label: "Points" },
-  badges: { icon: Star, color: "#2563EB", background: "#E7EFFC", label: "Badges" },
+type Accent = { color: string; background: string };
+
+/** Shared teal, matching the app's primary. */
+export const TEAL: Accent = { color: "#0F9B96", background: "#E3F4F3" };
+
+export const STAT_STYLE: Record<StatKey, Accent & { icon: LucideIcon; label: string }> = {
+  // warm orange
+  rank: { icon: Trophy, color: "#E08A3C", background: "#FDF2E4", label: "Rank" },
+  // teal / turquoise
+  points: { icon: Target, color: "#0F9B96", background: "#E3F4F3", label: "Points" },
+  // coral
+  streak: { icon: Flame, color: "#EF6B57", background: "#FDECE9", label: "Streak" },
+  // blue
+  badges: { icon: Star, color: "#3B82F6", background: "#E8F0FE", label: "Badges" },
 };
 
-export function StatIcon({ stat }: { stat: StatKey }) {
-  const { icon: Icon, color, background } = STAT_STYLE[stat];
+/** 80×80 rounded square, very light tint, icon centred in the accent colour. */
+function IconSquare({
+  icon: Icon,
+  accent,
+  className,
+}: {
+  icon: LucideIcon;
+  accent: Accent;
+  className?: string;
+}) {
   return (
     <span
-      className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl"
-      style={{ backgroundColor: background }}
+      className={cn(
+        "flex h-16 w-16 shrink-0 items-center justify-center rounded-[18px] sm:h-20 sm:w-20 sm:rounded-[20px]",
+        className
+      )}
+      style={{ backgroundColor: accent.background }}
       aria-hidden="true"
     >
-      <Icon size={24} strokeWidth={2} color={color} />
+      <Icon className="h-7 w-7 sm:h-8 sm:w-8" strokeWidth={2} color={accent.color} />
     </span>
   );
 }
 
-export function StatTile({
+/** Kept as a named export — small icon-only badge, reusable outside the cards. */
+export function StatIcon({ stat }: { stat: StatKey }) {
+  const { icon, ...accent } = STAT_STYLE[stat];
+  return <IconSquare icon={icon} accent={accent} />;
+}
+
+/**
+ * Stacked card: icon, then label, then the value, then a line of detail.
+ * Fills its grid cell so a row of them is always the same height.
+ */
+export function StatCard({
   stat,
   value,
-  detail,
   label,
+  detail,
+  className,
 }: {
   stat: StatKey;
   value: string;
-  detail?: string;
   label?: string;
+  detail?: string;
+  className?: string;
 }) {
+  const { icon, label: fallbackLabel, ...accent } = STAT_STYLE[stat];
   return (
-    <div className="flex items-center gap-4">
-      <StatIcon stat={stat} />
-      <div className="min-w-0">
-        <div className="text-sm text-muted-foreground">{label ?? STAT_STYLE[stat].label}</div>
-        <div className="font-display text-2xl font-bold leading-tight">{value}</div>
-        {detail && <div className="mt-0.5 truncate text-xs text-muted-foreground">{detail}</div>}
+    <Card className={cn("h-full rounded-[24px] p-6 card-hover", className)}>
+      <IconSquare icon={icon} accent={accent} />
+      <div className="mt-5 text-sm font-medium text-muted-foreground">{label ?? fallbackLabel}</div>
+      <div className="mt-1.5 font-display text-3xl font-bold leading-none text-foreground">
+        {value}
       </div>
-    </div>
+      {detail && <div className="mt-2 text-xs text-muted-foreground">{detail}</div>}
+    </Card>
   );
 }
+
+/**
+ * Horizontal card: icon on the left, value over label on the right, the pair
+ * vertically centred. Same shape on every breakpoint — the layout does not
+ * need to change for a phone, only the grid around it does.
+ */
+export function StatRow({
+  icon,
+  value,
+  label,
+  accent = TEAL,
+  className,
+}: {
+  icon: LucideIcon;
+  value: string;
+  label: string;
+  accent?: Accent;
+  className?: string;
+}) {
+  return (
+    <Card className={cn("flex h-full items-center gap-5 rounded-[24px] p-6 card-hover", className)}>
+      <IconSquare icon={icon} accent={accent} />
+      <div className="min-w-0">
+        <div className="font-display text-3xl font-bold leading-none text-foreground">{value}</div>
+        <div className="mt-2 text-sm font-normal text-muted-foreground">{label}</div>
+      </div>
+    </Card>
+  );
+}
+
+/** Backwards-compatible alias for the older inline tile. */
+export const StatTile = StatRow;

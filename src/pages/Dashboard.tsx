@@ -4,12 +4,12 @@ import { ChevronRight, Clock, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { StatCard, type StatKey } from "@/components/ui/stat-tile";
 import { ArticleFeed } from "@/components/feed/ArticleFeed";
 import { ErrorState } from "@/components/ui/states";
 import { useSession } from "@/lib/session";
 import { useLanguage } from "@/lib/i18n";
 import { api, type ChallengeSummary, type Profile } from "@/lib/api";
-import { cn } from "@/lib/utils";
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -33,37 +33,43 @@ export default function Dashboard() {
       .catch((e) => setError(e instanceof Error ? e.message : t("dashboard.loadError")));
   }, [lang]);
 
-  const stats = useMemo(
+  const stats: Array<{
+    stat: StatKey;
+    label: string;
+    value: string;
+    detail: string;
+    to: string;
+  }> = useMemo(
     () => [
       {
+        stat: "rank",
         label: t("dashboard.statRank"),
         value: profile ? `#${profile.rank}` : "—",
         detail: profile ? t("dashboard.ofStudents", { n: profile.total_users }) : "",
-        tone: "text-primary",
         to: "/leaderboard",
       },
       {
+        stat: "points",
         label: t("dashboard.statPoints"),
         value: profile ? profile.points.toLocaleString() : "—",
         detail: t("dashboard.earnedFrom"),
-        tone: "text-success",
         to: "/leaderboard",
       },
       {
+        stat: "streak",
         label: t("dashboard.statStreak"),
         value: profile ? `${profile.streak_days}` : "—",
         detail:
           profile && profile.longest_streak > profile.streak_days
             ? t("dashboard.best", { n: profile.longest_streak })
             : t("dashboard.daysInRow"),
-        tone: "text-warning",
         to: "/profile",
       },
       {
+        stat: "badges",
         label: t("dashboard.statBadges"),
         value: profile ? String(profile.badge_count) : "—",
         detail: t("dashboard.viewBadges"),
-        tone: "text-accent",
         to: "/profile?tab=badges",
       },
     ],
@@ -97,16 +103,15 @@ export default function Dashboard() {
 
       {error && <ErrorState message={error} />}
 
-      <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {stats.map((stat) => (
-          <Link key={stat.label} to={stat.to} className="block">
-            <Card className="h-full p-5 card-hover">
-              <div className="text-sm text-muted-foreground">{stat.label}</div>
-              <div className={cn("mt-1 font-display text-2xl font-bold", stat.tone)}>
-                {stat.value}
-              </div>
-              <div className="mt-0.5 text-xs text-muted-foreground">{stat.detail}</div>
-            </Card>
+      <div className="mb-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        {stats.map((item) => (
+          <Link key={item.label} to={item.to} className="block h-full">
+            <StatCard
+              stat={item.stat}
+              label={item.label}
+              value={item.value}
+              detail={item.detail}
+            />
           </Link>
         ))}
       </div>
