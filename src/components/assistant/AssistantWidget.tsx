@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Markdown } from "@/components/ui/markdown";
 import { StreamingAnswer } from "@/components/assistant/StreamingAnswer";
 import { useAiContext } from "@/lib/ai-context";
+import { readPreferences } from "@/lib/preferences";
 import { api, ApiError, traceStream, type QuickAction, type RiskLevel } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
@@ -54,8 +55,14 @@ const FOLLOW_UPS: Array<{ action: QuickAction; label: string }> = [
   { action: "quiz", label: "Quiz me" },
 ];
 
-/** How long tiny fragments pile up before one React update. */
-const FLUSH_MS = 60;
+/* Reveal pacing. One frame is ~16ms, so a backlog of one character per
+   frame is ~16ms/char — the low end of a comfortable typing speed. The
+   divisors keep a bigger backlog from falling behind: whatever is queued
+   clears in roughly this many frames, so long answers speed up instead of
+   taking half a minute. */
+const DRAIN_FRAMES = 26;          // while still receiving
+const FINISH_FRAMES = 30;         // after the stream ends — gentler, not a dump
+const MAX_CHARS_PER_FRAME = 14;   // ceiling: about two words, never a paragraph
 /** Distance from the bottom that still counts as "following along". */
 const STICK_PX = 80;
 
@@ -105,12 +112,15 @@ export function AssistantWidget() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
-  // Fragments land here first and are flushed to state on a timer, so a burst
-  // of one-token frames is one render instead of forty.
-  const pendingRef = useRef("");
-  const flushTimer = useRef<number | null>(null);
-  /** True until the first fragment of the current answer has painted. */
-  const firstPaint = useRef(true);
+  /* Everything received so far, and how much of it has been shown. The
+     panel renders receivedRef.slice(0, revealedRef); a rAF loop closes the
+     gap. Refs rather than state so a fragment arriving mid-frame does not
+     schedule a render of its own. */
+  const receivedRef = useRef("");
+  const revealedRef = useRef(0);
+  const rafRef = useRef<number | null>(null);
+  const streamDoneRef = useRef(false);
+  const finalPatchRef = useRef<Partial<Message> | null>(null);
   // False as soon as the user scrolls up mid-generation; true again when they
   // come back to the bottom.
   const stickToBottom = useRef(true);
@@ -158,7 +168,7 @@ export function AssistantWidget() {
   useEffect(
     () => () => {
       abortRef.current?.abort();
-      if (flushTimer.current) window.clearTimeout(flushTimer.current);
+      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
     },
     []
   );
@@ -171,8 +181,12 @@ export function AssistantWidget() {
       const answerId = nextId++;
       const controller = new AbortController();
       abortRef.current = controller;
-      pendingRef.current = "";
-      firstPaint.current = true;
+      receivedRef.current = "";
+      revealedRef.current = 0;
+      streamDoneRef.current = false;
+      finalPatchRef.current = null;
+      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
       stickToBottom.current = true;
 
       setMessages((prev) => [
@@ -191,15 +205,72 @@ export function AssistantWidget() {
           prev.map((m) => (m.id === answerId ? { ...m, ...patch } : m))
         );
 
-      const flush = () => {
-        flushTimer.current = null;
-        const buffered = pendingRef.current;
-        if (!buffered) return;
-        traceStream("React flush", `chars=${buffered.length}`);
-        pendingRef.current = "";
+      /* ---- reveal ------------------------------------------------------
+         Received text lands in `receivedRef` the instant it arrives; the
+         panel shows `receivedRef.slice(0, revealedRef)`. A rAF loop walks
+         the second number toward the first, so the reader sees characters
+         appear rather than paragraphs.
+
+         This never runs ahead of the network: the loop can only reveal text
+         that has already arrived, so a pause in the stream is a pause on
+         screen. The pace adapts to the backlog because a fixed 16ms/char
+         would need half a minute for a long answer — at a small backlog it
+         is one character per frame, and it speeds up rather than falling
+         behind. Reduced-motion users get the text immediately. */
+      const instant = readPreferences().reduceMotion;
+
+      const paint = () => {
+        const shown = receivedRef.current.slice(0, revealedRef.current);
         setMessages((prev) =>
-          prev.map((m) => (m.id === answerId ? { ...m, content: m.content + buffered } : m))
+          prev.map((m) => (m.id === answerId ? { ...m, content: shown } : m))
         );
+      };
+
+      const revealAll = () => {
+        revealedRef.current = receivedRef.current.length;
+        if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+        paint();
+      };
+
+      const pump = () => {
+        rafRef.current = null;
+        const total = receivedRef.current.length;
+        const shown = revealedRef.current;
+
+        if (shown < total) {
+          const backlog = total - shown;
+          const step = Math.min(
+            MAX_CHARS_PER_FRAME,
+            Math.max(
+              1,
+              Math.ceil(backlog / (streamDoneRef.current ? FINISH_FRAMES : DRAIN_FRAMES))
+            )
+          );
+          revealedRef.current = Math.min(total, shown + step);
+          traceStream("React flush", `revealed=${revealedRef.current}/${total} step=${step}`);
+          paint();
+        }
+
+        if (revealedRef.current < receivedRef.current.length || !streamDoneRef.current) {
+          rafRef.current = requestAnimationFrame(pump);
+        } else if (finalPatchRef.current) {
+          // Everything received has been shown — only now does the caret go.
+          applyToAnswer(finalPatchRef.current);
+          finalPatchRef.current = null;
+        }
+      };
+
+      const ensurePump = () => {
+        if (instant) {
+          revealAll();
+          if (streamDoneRef.current && finalPatchRef.current) {
+            applyToAnswer(finalPatchRef.current);
+            finalPatchRef.current = null;
+          }
+          return;
+        }
+        if (rafRef.current === null) rafRef.current = requestAnimationFrame(pump);
       };
 
       try {
@@ -218,46 +289,48 @@ export function AssistantWidget() {
             },
             onChunk: (text) => {
               setWaiting(false);
-              pendingRef.current += text;
-              traceStream("text appended", `chars=${text.length} buffered=${pendingRef.current.length}`);
-              // Leading edge: the first fragment paints immediately rather
-              // than sitting in the buffer. After a 3-4s wait for the first
-              // token, another 60ms of blank panel is the one delay worth
-              // removing. Later fragments still coalesce on the timer.
-              if (firstPaint.current) {
-                firstPaint.current = false;
-                flush();
-                return;
-              }
-              if (flushTimer.current === null) {
-                flushTimer.current = window.setTimeout(flush, FLUSH_MS);
-              }
+              receivedRef.current += text;
+              traceStream(
+                "text appended",
+                `chars=${text.length} received=${receivedRef.current.length} ` +
+                  `revealed=${revealedRef.current}`
+              );
+              ensurePump();
             },
             onDone: (meta) => {
-              flush();
               if (meta.session_id) setSessionId(meta.session_id);
-              applyToAnswer({
+              // The stream is over, but text may still be queued. The patch
+              // is held until the reveal catches up, so the caret does not
+              // vanish while characters are still appearing.
+              streamDoneRef.current = true;
+              finalPatchRef.current = {
                 streaming: false,
                 blocked: meta.blocked,
                 riskLevel: meta.risk_level,
-              });
+              };
+              ensurePump();
             },
             onError: (detail, partial) => {
-              flush();
-              // Partial text is never thrown away.
+              // An error stops the pacing: whatever arrived is shown at once.
+              streamDoneRef.current = true;
+              revealAll();
               applyToAnswer(
                 partial
                   ? { streaming: false, interrupted: true, error: detail }
                   : { streaming: false, content: detail, error: undefined }
               );
+              finalPatchRef.current = null;
             },
           },
           controller.signal
         );
       } catch (error) {
-        flush();
+        streamDoneRef.current = true;
+        // Stop, or a failure: no reason to keep pacing text the user already
+        // owns, so reveal the backlog immediately.
+        revealAll();
+        finalPatchRef.current = null;
         if (controller.signal.aborted) {
-          // Stop was pressed. Keep everything generated so far.
           applyToAnswer({ streaming: false, interrupted: true });
         } else {
           const detail =
@@ -275,11 +348,6 @@ export function AssistantWidget() {
           );
         }
       } finally {
-        if (flushTimer.current) {
-          window.clearTimeout(flushTimer.current);
-          flushTimer.current = null;
-        }
-        flush();
         abortRef.current = null;
         setBusy(false);
         setWaiting(false);
@@ -295,6 +363,8 @@ export function AssistantWidget() {
 
   function reset() {
     abortRef.current?.abort();
+    if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+    rafRef.current = null;
     setMessages([GREETING]);
     setSessionId(undefined);
     setInput("");
