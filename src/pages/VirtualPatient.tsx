@@ -8,18 +8,20 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { EmptyState, ErrorState, SkeletonCard } from "@/components/ui/states";
 import { PatientAvatar } from "@/components/virtual-patient/PatientAvatar";
 import { useToast } from "@/components/ui/toast";
+import { useLanguage } from "@/lib/i18n";
 import { api, type VpCase } from "@/lib/api";
 
 /** Difficulty reads as a colour before it reads as a word — as on Challenges. */
-const DIFFICULTY: Record<string, { badge: string; label: string }> = {
-  easy: { badge: "success", label: "Easy" },
-  medium: { badge: "warning", label: "Medium" },
-  hard: { badge: "accent", label: "Hard" },
+const DIFFICULTY: Record<string, { badge: string; key: string }> = {
+  easy: { badge: "success", key: "difficultyEasy" },
+  medium: { badge: "warning", key: "difficultyMedium" },
+  hard: { badge: "accent", key: "difficultyHard" },
 };
 
 export default function VirtualPatient() {
   const navigate = useNavigate();
   const toast = useToast();
+  const { t } = useLanguage();
   const [starting, setStarting] = useState<string | null>(null);
   const [cases, setCases] = useState<VpCase[]>([]);
   const [loading, setLoading] = useState(true);
@@ -31,7 +33,7 @@ export default function VirtualPatient() {
       setCases(await api.vpCases());
       setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not load the cases");
+      setError(e instanceof Error ? e.message : t("virtualPatient.couldNotLoadCases"));
     } finally {
       setLoading(false);
     }
@@ -51,7 +53,7 @@ export default function VirtualPatient() {
       const session = await api.vpStart(slug);
       navigate(`/virtual-patient/session/${session.session_id}`);
     } catch (e) {
-      toast(e instanceof Error ? e.message : "Could not start that case", "error");
+      toast(e instanceof Error ? e.message : t("virtualPatient.couldNotStart"), "error");
       setStarting(null);
     }
   }
@@ -59,18 +61,14 @@ export default function VirtualPatient() {
   return (
     <>
       <PageHeader
-        title="Virtual Patient"
-        subtitle="Work through a clinical case and see where your decisions lead"
+        title={t("virtualPatient.title")}
+        subtitle={t("virtualPatient.subtitle")}
       />
 
       <Card className="mb-6 border-primary/25 bg-primary/5 p-4">
         <p className="flex items-start gap-2 text-sm text-muted-foreground">
           <Stethoscope className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
-          <span>
-            Every patient here is simulated. Decisions are marked against an
-            authored clinical model, not by an AI — the assistant only puts the
-            patient's words and your debrief into plain language.
-          </span>
+          <span>{t("virtualPatient.safetyNote")}</span>
         </p>
       </Card>
 
@@ -84,8 +82,8 @@ export default function VirtualPatient() {
       ) : cases.length === 0 ? (
         <EmptyState
           icon={<Stethoscope className="h-8 w-8" />}
-          title="No cases are published yet"
-          body="Simulated cases appear here as they are released."
+          title={t("virtualPatient.noCases")}
+          body={t("virtualPatient.noCasesBody")}
         />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">
@@ -106,7 +104,9 @@ export default function VirtualPatient() {
                   />
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <Badge variant={difficulty.badge as never}>{difficulty.label}</Badge>
+                      <Badge variant={difficulty.badge as never}>
+                        {t(`virtualPatient.${difficulty.key}`)}
+                      </Badge>
                       <Badge variant="muted">{item.specialty}</Badge>
                       {item.completed && <Badge variant="success">Completed</Badge>}
                     </div>
@@ -125,15 +125,15 @@ export default function VirtualPatient() {
                   <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
                     <span className="flex items-center gap-1.5">
                       <Clock className="h-4 w-4" aria-hidden="true" />
-                      {item.estimated_minutes} min
+                      {t("virtualPatient.estimatedMinutes", { n: item.estimated_minutes })}
                     </span>
-                    <span>{item.stage_count} stages</span>
-                    <span>{item.max_score} points available</span>
+                    <span>{t("virtualPatient.stageCount", { n: item.stage_count })}</span>
+                    <span>{t("virtualPatient.pointsAvailable", { n: item.max_score })}</span>
                   </div>
 
                   {inProgress && (
                     <p className="mt-3 text-xs font-medium text-primary">
-                      You have a case in progress.
+                      {t("virtualPatient.caseInProgress")}
                     </p>
                   )}
 
@@ -152,10 +152,10 @@ export default function VirtualPatient() {
                         <Play className="h-4 w-4" aria-hidden="true" />
                       )}
                       {inProgress
-                        ? "Resume case"
+                        ? t("virtualPatient.resumeCase")
                         : item.completed
-                          ? "Play again"
-                          : "Start case"}
+                          ? t("virtualPatient.playAgain")
+                          : t("virtualPatient.startCase")}
                     </Button>
                   </div>
                 </div>

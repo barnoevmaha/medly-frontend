@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Activity, ArrowDown, ArrowUp, Droplet, HeartPulse, Thermometer, Wind } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { useLanguage } from "@/lib/i18n";
 import type { PatientState, VpVitals } from "@/lib/api";
 
 /**
@@ -12,16 +13,19 @@ import type { PatientState, VpVitals } from "@/lib/api";
  * reader, and a bar alone cannot say which direction things are moving.
  */
 
+/* Presentation only. The wording lives in the virtualPatient namespace so a
+   condition reads naturally in every language rather than being a translated
+   English adjective. */
 const STATE: Record<
   PatientState,
-  { label: string; fill: number; bar: string; badge: string; note: string }
+  { key: string; fill: number; bar: string; badge: string }
 > = {
-  recovered: { label: "Recovered", fill: 100, bar: "bg-success", badge: "success", note: "Out of danger" },
-  improving: { label: "Improving", fill: 80, bar: "bg-success", badge: "success", note: "Responding to treatment" },
-  stable: { label: "Stable", fill: 60, bar: "bg-primary", badge: "default", note: "Holding, but unwell" },
-  deteriorating: { label: "Deteriorating", fill: 35, bar: "bg-warning", badge: "warning", note: "Getting worse" },
-  critical: { label: "Critical", fill: 15, bar: "bg-destructive", badge: "accent", note: "Needs immediate action" },
-  failed: { label: "Arrested", fill: 0, bar: "bg-destructive", badge: "accent", note: "The patient did not survive" },
+  recovered: { key: "Recovered", fill: 100, bar: "bg-success", badge: "success" },
+  improving: { key: "Improving", fill: 80, bar: "bg-success", badge: "success" },
+  stable: { key: "Stable", fill: 60, bar: "bg-primary", badge: "default" },
+  deteriorating: { key: "Deteriorating", fill: 35, bar: "bg-warning", badge: "warning" },
+  critical: { key: "Critical", fill: 15, bar: "bg-destructive", badge: "accent" },
+  failed: { key: "Failed", fill: 0, bar: "bg-destructive", badge: "accent" },
 };
 
 /** Only the observations the backend actually sent are rendered. */
@@ -50,7 +54,10 @@ export function ConditionMeter({
   vitals?: VpVitals;
   className?: string;
 }) {
+  const { t } = useLanguage();
   const info = STATE[state] ?? STATE.stable;
+  const label = t(`virtualPatient.state${info.key}`);
+  const note = t(`virtualPatient.state${info.key}Note`);
   const present = VITALS.filter(
     (v) => vitals?.[v.key] !== undefined && vitals?.[v.key] !== null
   );
@@ -84,9 +91,9 @@ export function ConditionMeter({
     <div className={cn("space-y-3", className)}>
       <div className="flex items-center justify-between gap-3">
         <span className="text-sm font-medium text-muted-foreground">
-          Patient condition
+          {t("virtualPatient.conditionLabel")}
         </span>
-        <Badge variant={info.badge as never}>{info.label}</Badge>
+        <Badge variant={info.badge as never}>{label}</Badge>
       </div>
 
       <div
@@ -94,7 +101,7 @@ export function ConditionMeter({
         aria-valuenow={info.fill}
         aria-valuemin={0}
         aria-valuemax={100}
-        aria-label={`Patient condition: ${info.label}`}
+        aria-label={`${t("virtualPatient.conditionLabel")}: ${label}`}
         className="h-2.5 w-full overflow-hidden rounded-full bg-muted"
       >
         <div
@@ -102,7 +109,7 @@ export function ConditionMeter({
           style={{ width: `${info.fill}%` }}
         />
       </div>
-      <p className="text-xs text-muted-foreground">{info.note}</p>
+      <p className="text-xs text-muted-foreground">{note}</p>
 
       {present.length > 0 && (
         <dl className="grid grid-cols-3 gap-2 pt-1">
@@ -139,11 +146,13 @@ export function ConditionMeter({
                       ) : (
                         <ArrowDown className="ml-0.5 inline h-3 w-3" aria-hidden="true" />
                       )}
-                      <span className="sr-only"> ({moved === "up" ? "risen" : "fallen"})</span>
+                      <span className="sr-only">
+                        {" "}({t(`virtualPatient.${moved === "up" ? "risen" : "fallen"}`)})
+                      </span>
                     </>
                   )}
                   {/* Not colour alone: abnormal values are also marked. */}
-                  {abnormal && <span className="sr-only"> (abnormal)</span>}
+                  {abnormal && <span className="sr-only"> ({t("virtualPatient.abnormal")})</span>}
                   {abnormal && (
                     <span aria-hidden="true" className="ml-1 text-[10px]">
                       !

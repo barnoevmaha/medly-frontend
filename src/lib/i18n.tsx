@@ -7,16 +7,28 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import en from "@/locales/en";
 
 /**
  * App-wide language system.
  *
- * Selecting a language in Settings updates this Context, which re-renders
- * every mounted consumer immediately — no reload. The choice persists to
- * localStorage and is restored on the next visit. Untranslated keys fall
- * back to English rather than rendering a raw key, so a gap here degrades
- * to readable English instead of breaking the screen.
+ * Strings live in `src/locales/<lang>/<namespace>.json`, one file per feature.
+ * English is the source locale and is bundled eagerly, because it is the
+ * fallback for every other language and must be available before first paint.
+ * Russian and Uzbek are fetched on demand via dynamic import, so a user who
+ * never switches language never downloads them.
+ *
+ * Why not i18next: the app already had a working table-based translator with
+ * this exact `t(key, vars)` signature at ~330 call sites. Swapping the engine
+ * would have churned every one of them for behaviour we already have —
+ * fallback, interpolation, persistence, plurals and Intl formatting are all
+ * below in about a hundred lines. Revisit if we need ICU MessageFormat,
+ * gendered strings, or translator tooling that speaks i18next's format.
+ *
+ * Adding a string: put it in `src/locales/en/<namespace>.json`, use
+ * `t("namespace.key")`, then run `npm run i18n:translate` to fill in ru/uz.
  */
+
 export type Lang = "en" | "ru" | "uz";
 
 export const LANGUAGES: Array<{ code: Lang; label: string; english: string }> = [
@@ -25,1155 +37,76 @@ export const LANGUAGES: Array<{ code: Lang; label: string; english: string }> = 
   { code: "uz", label: "Oʻzbek", english: "Uzbek" },
 ];
 
-// Some browsers ship ICU data that lists "uz" as a supported locale but has
-// no month names for it, so `toLocaleString("uz", { month: "short" })`
-// silently degrades to a garbled "M08 11" instead of "11-avg". Verified against
-// a real Chromium build, not a hypothetical. Formatting month/day/time by hand
-// for Uzbek sidesteps that gap entirely; Russian and English go through the
-// normal Intl formatter, which renders those correctly.
-const UZ_MONTHS_SHORT = [
-  "yan", "fev", "mar", "apr", "may", "iyn", "iyl", "avg", "sen", "okt", "noy", "dek",
-];
-
-/** A short "11 Aug, 14:05"-style timestamp, safe across all three languages. */
-export function formatDateTime(iso: string, lang: Lang): string {
-  const date = new Date(iso);
-  if (lang === "uz") {
-    const hh = String(date.getHours()).padStart(2, "0");
-    const mm = String(date.getMinutes()).padStart(2, "0");
-    return `${date.getDate()}-${UZ_MONTHS_SHORT[date.getMonth()]}, ${hh}:${mm}`;
-  }
-  return date.toLocaleString(lang, {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
+export const SOURCE_LANG: Lang = "en";
 
 type Table = Record<string, string>;
 
-const STRINGS: Record<Lang, Table> = {
-  en: {
-    // nav
-    "nav.dashboard": "Dashboard",
-    "nav.communities": "Communities",
-    "nav.challenges": "Challenges",
-    "nav.library": "Library",
-    "nav.profile": "Profile",
-    "nav.settings": "Settings",
-    "nav.logout": "Log out",
-    "nav.premium": "Go Premium",
-    "nav.aiTraining": "AI Training",
-    "nav.caseReferences": "Case references",
-    "nav.governance": "Governance",
-
-    // common
-    "common.open": "Open",
-    "common.read": "Read",
-    "common.watch": "Watch",
-    "common.save": "Save",
-    "common.saved": "Saved",
-    "common.cancel": "Cancel",
-    "common.clear": "Clear",
-    "common.clearAll": "Clear all",
-    "common.search": "Search",
-    "common.filter": "Filter",
-    "common.loading": "Loading…",
-    "common.tryAgain": "Try again",
-    "common.remove": "Remove",
-    "common.close": "Close",
-    "common.somethingWrong": "Something went wrong",
-
-    // dashboard
-    "dashboard.welcome": "Welcome back",
-    "dashboard.streakKeepGoing": "{n}-day streak — keep it going.",
-    "dashboard.streakStart": "Answer a question or finish a lesson to start a streak.",
-    "dashboard.aiTraining": "AI Training",
-    "dashboard.imagingWorkbench": "Imaging workbench",
-    "dashboard.statRank": "Rank",
-    "dashboard.statPoints": "Points",
-    "dashboard.statStreak": "Streak",
-    "dashboard.statBadges": "Badges",
-    "dashboard.ofStudents": "of {n} students",
-    "dashboard.earnedFrom": "Earned from challenges & quizzes",
-    "dashboard.best": "Best {n} days",
-    "dashboard.daysInRow": "Days in a row",
-    "dashboard.viewBadges": "View your badges",
-    "dashboard.featuredChallenge": "Featured challenge",
-    "dashboard.continueChallenge": "Continue challenge",
-    "dashboard.joinChallenge": "Join challenge",
-    "dashboard.questions": "questions",
-    "dashboard.pts": "pts",
-    "dashboard.joined": "joined",
-    "dashboard.latestFeed": "Latest in your feed",
-    "dashboard.openFeed": "Open Your Feed",
-
-    // library
-    "library.title": "Library",
-    "library.subtitle": "Videos and books — plus everything you have saved",
-    "library.videos": "Videos",
-    "library.books": "Books",
-    "library.saved": "Saved",
-    "library.search": "Search the whole library…",
-    "library.filter": "Filter",
-    "library.filters": "Filters",
-    "library.filtersHint": "Built from the catalogue — only values that exist appear here.",
-    "library.clearAll": "Clear all",
-    "library.level": "Level",
-    "library.year": "Year",
-    "library.allYears": "All years",
-    "library.subject": "Subject",
-    "library.nothingSaved": "Nothing saved yet",
-    "library.nothingSavedMatches": "Nothing saved matches that",
-    "library.savedHint": "Bookmark a video or a book and it collects here. Saving never removes it from its own tab.",
-    "library.browseVideos": "Browse videos",
-    "library.nothingMatches": "Nothing here matches",
-    "library.tryDifferent": "Try a different search term, or clear the filters.",
-
-    // communities
-    "communities.title": "Communities",
-    "communities.subtitle": "Join communities based on your specialty interests",
-    "communities.create": "Create Community",
-    "communities.cancel": "Cancel",
-    "communities.premiumToCreate": "Premium to create",
-    "communities.premiumFeatureTitle": "Creating a community is a Premium feature",
-    "communities.premiumFeatureBody": "You can join and take part in every community on Medly. Starting your own needs Premium — and the rule is enforced by the API, so it holds for any client, not just this page.",
-    "communities.new": "New community",
-    "communities.namePlaceholder": "Community name",
-    "communities.descPlaceholder": "What is this community for? This line appears under the title and is what community search matches.",
-    "communities.specialtyPlaceholder": "Specialty, e.g. Cardiology",
-    "communities.createButton": "Create community",
-    "communities.searchPlaceholder": "Search communities by name or description…",
-    "communities.filterAll": "All",
-    "communities.filterMine": "My Communities",
-    "communities.filterPopular": "Popular",
-    "communities.filterNew": "New",
-    "communities.notFound": "No communities found",
-    "communities.clearSearch": "Clear search",
-    "communities.members": "members",
-    "communities.messages": "messages",
-    "communities.openChat": "Open chat",
-    "communities.join": "Join",
-    "communities.leave": "Leave",
-    "communities.joined": "Joined",
-    "communities.yours": "Yours",
-
-    // community room
-    "room.backToCommunities": "Communities",
-    "room.leaveCommunity": "Leave community",
-    "room.joinCommunity": "Join community",
-    "room.noMessages": "No messages yet",
-    "room.startConversation": "Start the conversation — ask a question or share a case.",
-    "room.messagePlaceholder": "Message {name}…",
-    "room.send": "Send",
-    "room.sendingJoins": "Sending a message joins this community.",
-
-    // challenges
-    "challenges.title": "Challenges & Rankings",
-    "challenges.subtitle": "Answer correctly, earn points, climb the leaderboard",
-    "challenges.totalPoints": "Total points",
-    "challenges.ofStudents": "of {n} students",
-    "challenges.started": "Challenges started",
-    "challenges.active": "Active challenges",
-    "challenges.noneRunning": "No challenges are running",
-    "challenges.checkBack": "Check back shortly — new challenges are published every week.",
-    "challenges.joined": "joined",
-    "challenges.reviewAnswers": "Review answers",
-    "challenges.continue": "Continue Challenge",
-    "challenges.join": "Join Challenge",
-    "challenges.topLeaderboard": "Top of the leaderboard",
-    "challenges.fullRanking": "Full ranking",
-    "challenges.noScores": "No scores yet. Answer a challenge question to get on the board.",
-
-    // profile
-    "profile.rank": "Rank",
-    "profile.globalRank": "Global Rank",
-    "profile.totalPoints": "Total Points",
-    "profile.badgesEarned": "Badges Earned",
-    "profile.communities": "Communities",
-    "profile.overview": "Overview",
-    "profile.badges": "Badges",
-    "profile.activity": "Activity",
-    "profile.learning": "Learning",
-    "profile.lessonsCompleted": "Lessons completed",
-    "profile.challengesStarted": "Challenges started",
-    "profile.currentStreak": "Current streak",
-    "profile.continueTraining": "Continue AI Training",
-    "profile.libraryDiscussion": "Library & discussion",
-    "profile.savedItems": "Saved items",
-    "profile.commentsWritten": "Comments written",
-    "profile.communitiesJoined": "Communities joined",
-    "profile.openSaved": "Open Saved",
-    "profile.findMore": "Find more",
-    "profile.notJoined": "You have not joined any yet",
-    "profile.notJoinedHint": "Communities are where cases get discussed between sessions.",
-    "profile.browseCommunities": "Browse communities",
-    "profile.recentActivity": "Recent activity",
-    "profile.nothingRecorded": "Nothing recorded yet",
-    "profile.nothingRecordedHint": "Answer a challenge question or finish a lesson and it will show up here.",
-
-    // settings
-    "settings.title": "Settings",
-    "settings.subtitle": "Your account, privacy and how Medly looks on this device",
-    "settings.account": "Account",
-    "settings.accountDesc": "How you appear across Medly",
-    "settings.fullName": "Full name",
-    "settings.institution": "Institution",
-    "settings.yearOfStudy": "Year of study",
-    "settings.email": "Email",
-    "settings.role": "Role",
-    "settings.uneditableHint": "Email and role are set by your institution and cannot be changed here.",
-    "settings.saveChanges": "Save changes",
-    "settings.security": "Security",
-    "settings.securityDesc": "Change your password",
-    "settings.currentPassword": "Current password",
-    "settings.newPassword": "New password",
-    "settings.confirmPassword": "Confirm new password",
-    "settings.passwordHint": "At least 8 characters. Your current password is required.",
-    "settings.changePassword": "Change password",
-    "settings.privacy": "Privacy",
-    "settings.privacyDesc": "What other students can see, and what Medly keeps",
-    "settings.showOnLeaderboard": "Show me on the leaderboard",
-    "settings.showOnLeaderboardHint": "Turn this off and your name disappears from the public ranking. Your own rank is still calculated and shown to you.",
-    "settings.assistantHistory": "Assistant conversation history",
-    "settings.assistantHistoryHint": "Deletes every message you have exchanged with the study assistant.",
-    "settings.deleteHistory": "Delete my assistant history",
-    "settings.patientData": "Patient data",
-    "settings.patientDataHint": "Medly never stores patient-identifying data. Case images are anonymised and verified by a teacher before any student can load them.",
-    "settings.seeStandard": "See the safety standard",
-    "settings.appearance": "Appearance",
-    "settings.appearanceDesc": "Applies to this browser only",
-    "settings.theme": "Theme",
-    "settings.light": "Light",
-    "settings.dark": "Dark",
-    "settings.system": "System",
-    "settings.reduceMotion": "Reduce motion",
-    "settings.reduceMotionHint": "Turns off card lifts and fade-in animations across the app.",
-    "settings.language": "Language",
-    "settings.languageDesc": "Choose the language Medly displays across the app",
-    "settings.session": "Session",
-    "settings.sessionDesc": "Sign out of this device",
-    "settings.signOutHint": "Signing out clears the token stored in this browser. Your saved items, points and progress are on the server and will be waiting when you sign back in.",
-    "settings.logOut": "Log out",
-    "settings.loading": "Loading settings…",
-    "settings.accountSaved": "Account details saved",
-    "settings.accountSaveError": "Could not save your details",
-    "settings.passwordMismatch": "The two new passwords do not match",
-    "settings.passwordChanged": "Password changed",
-    "settings.passwordChangeError": "Could not change your password",
-    "settings.leaderboardShown": "You appear on the leaderboard",
-    "settings.leaderboardHidden": "You are hidden from the leaderboard",
-    "settings.privacyUpdateError": "Could not update that",
-    "settings.historyDeleted": "Assistant history deleted",
-    "settings.historyDeleteError": "Could not clear your history",
-    "settings.languageUpdated": "Language updated",
-    "settings.institutionPlaceholder": "e.g. Columbia University",
-    "settings.yearPlaceholder": "e.g. 3",
-    "settings.sectionsAria": "Settings sections",
-
-    // common — additions
-    "common.you": "You",
-    "common.done": "done",
-    "common.previous": "Previous",
-    "common.back": "Back",
-    "common.premium": "Premium",
-    "common.freePlan": "Free",
-    "common.thatDidNotWork": "That did not work",
-    "common.couldNotSave": "Could not save that",
-    "common.savedToCollection": "Saved to your collection",
-    "common.removedFromSaved": "Removed from Saved",
-    "common.linkCopied": "Link copied to clipboard",
-    "common.copyThisLink": "Copy this link",
-    "common.clearSearch": "Clear search",
-    "common.minAgo": "{n} min ago",
-    "common.hoursAgo": "{n}h ago",
-    "common.daysAgo": "{n}d ago",
-
-    // dashboard — additions
-    "dashboard.loadError": "Could not load the dashboard",
-
-    // communities — additions
-    "communities.loadError": "Could not load communities",
-    "communities.joinedToast": "Joined {name}",
-    "communities.leftToast": "Left {name}",
-    "communities.createdToast": "{name} created",
-    "communities.createError": "Could not create that community",
-    "communities.descriptionLabel": "Description",
-    "communities.specialtyLabel": "Specialty",
-    "communities.noMatchQuery": "Nothing matches “{query}” in a community name or description.",
-    "communities.noMatchFilter": "Nothing here under this filter yet.",
-
-    // community room — additions
-    "room.loadError": "Could not open this community",
-    "room.sendError": "Message not sent",
-    "room.opening": "Opening community…",
-    "room.messageAria": "Message",
-
-    // challenges — additions
-    "challenges.loadError": "Could not load challenges",
-    "challenges.openError": "Could not open that challenge",
-    "challenges.noDeadline": "No deadline",
-    "challenges.closed": "Closed",
-    "challenges.hoursLeft": "{n}h left",
-    "challenges.daysHoursLeft": "{d}d {h}h left",
-    "challenges.answeredSummary": "{answered} of {total} answered · {pts} pts earned",
-    "challenges.difficultyEasy": "easy",
-    "challenges.difficultyMedium": "medium",
-    "challenges.difficultyHard": "hard",
-
-    // challenge run
-    "run.correctPoints": "Correct — +{n} points",
-    "run.alreadyAnsweredToast": "You have already answered this one — no points this time",
-    "run.badgeUnlocked": "Badge unlocked — {badge}",
-    "run.opening": "Opening challenge…",
-    "run.complete": "Challenge complete",
-    "run.correctLabel": "Correct",
-    "run.pointsEarned": "Points earned",
-    "run.accuracy": "Accuracy",
-    "run.reviewHint": "Points are awarded once per question, so reviewing your answers will not change your score.",
-    "run.seeLeaderboard": "See the leaderboard",
-    "run.moreChallenges": "More challenges",
-    "run.topicLabel": "Topic: {topic}",
-    "run.questionProgress": "Question {n} of {total}",
-    "run.answeredCount": "{n} answered",
-    "run.questionBadge": "Question {n}",
-    "run.notQuite": "Not quite",
-    "run.pointsAwarded": "+{n} points",
-    "run.alreadyAnsweredInline": "Already answered — no points awarded again",
-    "run.nextQuestion": "Next question",
-    "run.finish": "Finish",
-    "run.submitAnswer": "Submit answer",
-    "run.submitError": "Could not submit that answer",
-
-    // library — additions
-    "library.loadError": "Could not load the library",
-    "library.savedToast": "Saved — still in the Library",
-    "library.removeError": "Could not remove that",
-    "library.removeFilterAria": "Remove {value} filter",
-    "library.sectionsAria": "Library sections",
-    "library.pagesCount": "{n} pages",
-    "library.saveAria": "Save {title}",
-    "library.removeFromSavedAria": "Remove from Saved",
-    "library.removeSavedAria": "Remove {title} from Saved",
-    "library.levelFoundation": "foundation",
-    "library.levelClinical": "clinical",
-    "library.levelAdvanced": "advanced",
-
-    // article
-    "article.loadError": "Could not load this article",
-    "article.registerError": "Could not register that",
-    "article.commentPosted": "Comment posted",
-    "article.commentPostError": "Could not post that comment",
-    "article.commentDeleted": "Comment deleted",
-    "article.commentDeleteError": "Could not delete that comment",
-    "article.loading": "Loading article…",
-    "article.minRead": "{n} min read",
-    "article.share": "Share",
-    "article.comments": "Comments",
-    "article.commentPlaceholder": "Add to the discussion…",
-    "article.writeCommentAria": "Write a comment",
-    "article.commentHint": "Posted under your name and visible to other students.",
-    "article.postComment": "Post comment",
-    "article.noComments": "No comments yet. Be the first to add one.",
-    "article.deleteCommentAria": "Delete comment",
-    "article.backToFeed": "Back to your feed",
-
-    // read (books/PDFs)
-    "read.loadError": "Could not load this book",
-    "read.opening": "Opening book…",
-    "read.notFoundTitle": "Book not found",
-    "read.notFoundBody": "That title is not in the library.",
-    "read.openNewTab": "Open in new tab",
-    "read.blockedHint": "If the reader does not load, your browser is blocking the embedded document — use",
-
-    // watch (video)
-    "watch.loadError": "Could not load this video",
-    "watch.loading": "Loading video…",
-    "watch.notFoundTitle": "Video not found",
-    "watch.notFoundBody": "That video is not in the library.",
-
-    // feed
-    "feed.title": "Your Feed",
-    "feed.subtitle": "Medical news, study technique and events — searchable to the last word",
-    "feed.tagAll": "All",
-    "feed.tagMedicalNews": "Medical News",
-    "feed.tagStudyTip": "Study Tip",
-    "feed.tagUpcomingEvent": "Upcoming Event",
-    "feed.tagSponsored": "Sponsored",
-    "feed.loadError": "Could not load the feed",
-    "feed.searchPlaceholder": "Search articles and their content",
-    "feed.searchAria": "Search your feed",
-    "feed.searchHint": "Searches the full text of every article, not just the headline.",
-    "feed.readArticle": "Read article",
-    "feed.commentAria": "Comment on {title}",
-    "feed.copyLinkAria": "Copy link",
-    "feed.noMatch": "Nothing matches that search",
-    "feed.noMatchHint": "Try a different search term, or clear the search.",
-    "feed.noMatchQueryBody": "No article mentions “{query}”. Try a broader term — the search covers the full text of every article.",
-    "feed.noMatchFilterBody": "No articles under this filter yet.",
-
-    // profile — additions
-    "profile.loadError": "Could not load your profile",
-    "profile.loading": "Loading profile…",
-    "profile.yearLabel": "Year {n}",
-    "profile.badgesEarnedOf": "{earned} of {total} earned",
-    "profile.earnedOn": "Earned {date}",
-    "profile.badgesHint2": "Badges unlock from real activity — finishing a lesson, answering challenge questions, saving material, joining communities.",
-    "profile.openLeaderboardHint": "Open the leaderboard",
-    "profile.viewBadgesHint": "View badges",
-    "profile.viewCommunitiesHint": "View your communities",
-    "profile.streakDaysCount": "{n} days",
-  },
-
-  ru: {
-    "nav.dashboard": "Панель",
-    "nav.communities": "Сообщества",
-    "nav.challenges": "Испытания",
-    "nav.library": "Библиотека",
-    "nav.profile": "Профиль",
-    "nav.settings": "Настройки",
-    "nav.logout": "Выйти",
-    "nav.premium": "Премиум",
-    "nav.aiTraining": "ИИ-тренинг",
-    "nav.caseReferences": "Клинические случаи",
-    "nav.governance": "Управление",
-
-    "common.open": "Открыть",
-    "common.read": "Читать",
-    "common.watch": "Смотреть",
-    "common.save": "Сохранить",
-    "common.saved": "Сохранено",
-    "common.cancel": "Отмена",
-    "common.clear": "Сбросить",
-    "common.clearAll": "Сбросить всё",
-    "common.search": "Поиск",
-    "common.filter": "Фильтр",
-    "common.loading": "Загрузка…",
-    "common.tryAgain": "Повторить",
-    "common.remove": "Удалить",
-    "common.close": "Закрыть",
-    "common.somethingWrong": "Что-то пошло не так",
-
-    "dashboard.welcome": "С возвращением",
-    "dashboard.streakKeepGoing": "{n} дней подряд — продолжайте в том же духе!",
-    "dashboard.streakStart": "Ответьте на вопрос или завершите урок, чтобы начать серию.",
-    "dashboard.aiTraining": "ИИ-тренинг",
-    "dashboard.imagingWorkbench": "Лаборатория снимков",
-    "dashboard.statRank": "Ранг",
-    "dashboard.statPoints": "Очки",
-    "dashboard.statStreak": "Серия",
-    "dashboard.statBadges": "Значки",
-    "dashboard.ofStudents": "из {n} студентов",
-    "dashboard.earnedFrom": "Заработано за испытания и тесты",
-    "dashboard.best": "Лучшая серия {n} дней",
-    "dashboard.daysInRow": "Дней подряд",
-    "dashboard.viewBadges": "Смотреть значки",
-    "dashboard.featuredChallenge": "Рекомендуемое испытание",
-    "dashboard.continueChallenge": "Продолжить испытание",
-    "dashboard.joinChallenge": "Присоединиться",
-    "dashboard.questions": "вопросов",
-    "dashboard.pts": "очк.",
-    "dashboard.joined": "участников",
-    "dashboard.latestFeed": "Новое в вашей ленте",
-    "dashboard.openFeed": "Открыть ленту",
-
-    "library.title": "Библиотека",
-    "library.subtitle": "Видео и книги — плюс всё, что вы сохранили",
-    "library.videos": "Видео",
-    "library.books": "Книги",
-    "library.saved": "Сохранённые",
-    "library.search": "Поиск по всей библиотеке…",
-    "library.filter": "Фильтр",
-    "library.filters": "Фильтры",
-    "library.filtersHint": "Собрано из каталога — показаны только реальные значения.",
-    "library.clearAll": "Сбросить всё",
-    "library.level": "Уровень",
-    "library.year": "Год",
-    "library.allYears": "Все годы",
-    "library.subject": "Тема",
-    "library.nothingSaved": "Пока ничего не сохранено",
-    "library.nothingSavedMatches": "Ничего сохранённого не найдено",
-    "library.savedHint": "Сохраните видео или книгу — они появятся здесь. Сохранение не убирает материал из своей вкладки.",
-    "library.browseVideos": "Смотреть видео",
-    "library.nothingMatches": "Ничего не найдено",
-    "library.tryDifferent": "Попробуйте другой запрос или сбросьте фильтры.",
-
-    "communities.title": "Сообщества",
-    "communities.subtitle": "Присоединяйтесь к сообществам по вашей специальности",
-    "communities.create": "Создать сообщество",
-    "communities.cancel": "Отмена",
-    "communities.premiumToCreate": "Premium для создания",
-    "communities.premiumFeatureTitle": "Создание сообщества — функция Premium",
-    "communities.premiumFeatureBody": "Вы можете вступать в любое сообщество Medly. Для создания своего нужен Premium — это правило проверяется на сервере, а не только в интерфейсе.",
-    "communities.new": "Новое сообщество",
-    "communities.namePlaceholder": "Название сообщества",
-    "communities.descPlaceholder": "Для чего это сообщество? Эта строка появится под названием и участвует в поиске.",
-    "communities.specialtyPlaceholder": "Специальность, напр. Кардиология",
-    "communities.createButton": "Создать сообщество",
-    "communities.searchPlaceholder": "Поиск сообществ по названию или описанию…",
-    "communities.filterAll": "Все",
-    "communities.filterMine": "Мои сообщества",
-    "communities.filterPopular": "Популярные",
-    "communities.filterNew": "Новые",
-    "communities.notFound": "Сообщества не найдены",
-    "communities.clearSearch": "Сбросить поиск",
-    "communities.members": "участников",
-    "communities.messages": "сообщений",
-    "communities.openChat": "Открыть чат",
-    "communities.join": "Вступить",
-    "communities.leave": "Покинуть",
-    "communities.joined": "Состоите",
-    "communities.yours": "Ваше",
-
-    "room.backToCommunities": "Сообщества",
-    "room.leaveCommunity": "Покинуть сообщество",
-    "room.joinCommunity": "Вступить в сообщество",
-    "room.noMessages": "Сообщений пока нет",
-    "room.startConversation": "Начните разговор — задайте вопрос или поделитесь случаем.",
-    "room.messagePlaceholder": "Сообщение {name}…",
-    "room.send": "Отправить",
-    "room.sendingJoins": "Как только вы отправите сообщение, вы автоматически вступите в сообщество.",
-
-    "challenges.title": "Испытания и рейтинг",
-    "challenges.subtitle": "Отвечайте правильно, зарабатывайте очки, поднимайтесь в рейтинге",
-    "challenges.totalPoints": "Всего очков",
-    "challenges.ofStudents": "из {n} студентов",
-    "challenges.started": "Начато испытаний",
-    "challenges.active": "Активные испытания",
-    "challenges.noneRunning": "Сейчас нет активных испытаний",
-    "challenges.checkBack": "Загляните позже — новые испытания публикуются каждую неделю.",
-    "challenges.joined": "участников",
-    "challenges.reviewAnswers": "Посмотреть ответы",
-    "challenges.continue": "Продолжить испытание",
-    "challenges.join": "Присоединиться",
-    "challenges.topLeaderboard": "Лидеры рейтинга",
-    "challenges.fullRanking": "Весь рейтинг",
-    "challenges.noScores": "Пока нет результатов. Ответьте на вопрос испытания, чтобы попасть в рейтинг.",
-
-    "profile.rank": "Ранг",
-    "profile.globalRank": "Общий рейтинг",
-    "profile.totalPoints": "Всего очков",
-    "profile.badgesEarned": "Получено значков",
-    "profile.communities": "Сообщества",
-    "profile.overview": "Обзор",
-    "profile.badges": "Значки",
-    "profile.activity": "Активность",
-    "profile.learning": "Обучение",
-    "profile.lessonsCompleted": "Уроков пройдено",
-    "profile.challengesStarted": "Испытаний начато",
-    "profile.currentStreak": "Текущая серия",
-    "profile.continueTraining": "Продолжить ИИ-тренинг",
-    "profile.libraryDiscussion": "Библиотека и обсуждения",
-    "profile.savedItems": "Сохранено материалов",
-    "profile.commentsWritten": "Написано комментариев",
-    "profile.communitiesJoined": "Сообществ выбрано",
-    "profile.openSaved": "Открыть сохранённое",
-    "profile.findMore": "Найти ещё",
-    "profile.notJoined": "Вы пока не вступили ни в одно сообщество",
-    "profile.notJoinedHint": "В сообществах обсуждают случаи между занятиями.",
-    "profile.browseCommunities": "Смотреть сообщества",
-    "profile.recentActivity": "Недавняя активность",
-    "profile.nothingRecorded": "Пока ничего не записано",
-    "profile.nothingRecordedHint": "Ответьте на вопрос испытания или завершите урок — это появится здесь.",
-
-    "settings.title": "Настройки",
-    "settings.subtitle": "Ваш аккаунт, конфиденциальность и оформление Medly на этом устройстве",
-    "settings.account": "Аккаунт",
-    "settings.accountDesc": "Как вас видят в Medly",
-    "settings.fullName": "Полное имя",
-    "settings.institution": "Учебное заведение",
-    "settings.yearOfStudy": "Курс обучения",
-    "settings.email": "Email",
-    "settings.role": "Роль",
-    "settings.uneditableHint": "Email и роль устанавливает учебное заведение — их нельзя изменить здесь.",
-    "settings.saveChanges": "Сохранить изменения",
-    "settings.security": "Безопасность",
-    "settings.securityDesc": "Изменить пароль",
-    "settings.currentPassword": "Текущий пароль",
-    "settings.newPassword": "Новый пароль",
-    "settings.confirmPassword": "Подтвердите новый пароль",
-    "settings.passwordHint": "Минимум 8 символов. Требуется текущий пароль.",
-    "settings.changePassword": "Изменить пароль",
-    "settings.privacy": "Конфиденциальность",
-    "settings.privacyDesc": "Что видят другие студенты и что хранит Medly",
-    "settings.showOnLeaderboard": "Показывать меня в рейтинге",
-    "settings.showOnLeaderboardHint": "Отключите — и ваше имя исчезнет из публичного рейтинга. Ваш ранг всё равно рассчитывается и виден вам.",
-    "settings.assistantHistory": "История диалогов с ассистентом",
-    "settings.assistantHistoryHint": "Удаляет все сообщения, которыми вы обменялись с учебным ассистентом.",
-    "settings.deleteHistory": "Удалить историю ассистента",
-    "settings.patientData": "Данные пациентов",
-    "settings.patientDataHint": "Medly никогда не хранит идентифицирующие данные пациентов. Снимки обезличиваются и проверяются преподавателем.",
-    "settings.seeStandard": "Стандарт безопасности",
-    "settings.appearance": "Внешний вид",
-    "settings.appearanceDesc": "Применяется только к этому браузеру",
-    "settings.theme": "Тема",
-    "settings.light": "Светлая",
-    "settings.dark": "Тёмная",
-    "settings.system": "Системная",
-    "settings.reduceMotion": "Меньше анимации",
-    "settings.reduceMotionHint": "Отключает подъём карточек и анимации появления по всему приложению.",
-    "settings.language": "Язык",
-    "settings.languageDesc": "Выберите язык интерфейса Medly",
-    "settings.session": "Сессия",
-    "settings.sessionDesc": "Выйти с этого устройства",
-    "settings.signOutHint": "Выход удаляет токен, сохранённый в этом браузере. Ваши материалы, очки и прогресс хранятся на сервере и будут ждать вас при следующем входе.",
-    "settings.logOut": "Выйти",
-    "settings.loading": "Загружаем настройки…",
-    "settings.accountSaved": "Данные аккаунта сохранены",
-    "settings.accountSaveError": "Не удалось сохранить данные",
-    "settings.passwordMismatch": "Новые пароли не совпадают",
-    "settings.passwordChanged": "Пароль изменён",
-    "settings.passwordChangeError": "Не удалось изменить пароль",
-    "settings.leaderboardShown": "Вы отображаетесь в рейтинге",
-    "settings.leaderboardHidden": "Вы скрыты из рейтинга",
-    "settings.privacyUpdateError": "Не удалось это обновить",
-    "settings.historyDeleted": "История ассистента удалена",
-    "settings.historyDeleteError": "Не удалось очистить историю",
-    "settings.languageUpdated": "Язык обновлён",
-    "settings.institutionPlaceholder": "например, МГУ",
-    "settings.yearPlaceholder": "например, 3",
-    "settings.sectionsAria": "Разделы настроек",
-
-    // common — additions
-    "common.you": "Вы",
-    "common.done": "готово",
-    "common.previous": "Назад",
-    "common.back": "Назад",
-    "common.premium": "Премиум",
-    "common.freePlan": "Бесплатный",
-    "common.thatDidNotWork": "Не получилось",
-    "common.couldNotSave": "Не удалось сохранить",
-    "common.savedToCollection": "Сохранено в вашей коллекции",
-    "common.removedFromSaved": "Удалено из сохранённого",
-    "common.linkCopied": "Ссылка скопирована",
-    "common.copyThisLink": "Скопируйте эту ссылку",
-    "common.clearSearch": "Очистить поиск",
-    "common.minAgo": "{n} мин назад",
-    "common.hoursAgo": "{n} ч назад",
-    "common.daysAgo": "{n} дн назад",
-
-    // dashboard — additions
-    "dashboard.loadError": "Не удалось загрузить панель",
-
-    // communities — additions
-    "communities.loadError": "Не удалось загрузить сообщества",
-    "communities.joinedToast": "Вы вступили в «{name}»",
-    "communities.leftToast": "Вы покинули «{name}»",
-    "communities.createdToast": "Сообщество «{name}» создано",
-    "communities.createError": "Не удалось создать сообщество",
-    "communities.descriptionLabel": "Описание",
-    "communities.specialtyLabel": "Специальность",
-    "communities.noMatchQuery": "По запросу «{query}» ничего не найдено ни в названии, ни в описании.",
-    "communities.noMatchFilter": "По этому фильтру пока ничего нет.",
-
-    // community room — additions
-    "room.loadError": "Не удалось открыть это сообщество",
-    "room.sendError": "Сообщение не отправлено",
-    "room.opening": "Открываем сообщество…",
-    "room.messageAria": "Сообщение",
-
-    // challenges — additions
-    "challenges.loadError": "Не удалось загрузить испытания",
-    "challenges.openError": "Не удалось открыть это испытание",
-    "challenges.noDeadline": "Без срока",
-    "challenges.closed": "Завершено",
-    "challenges.hoursLeft": "осталось {n} ч",
-    "challenges.daysHoursLeft": "осталось {d} дн {h} ч",
-    "challenges.answeredSummary": "Отвечено {answered} из {total} · заработано {pts} очк.",
-    "challenges.difficultyEasy": "лёгкий",
-    "challenges.difficultyMedium": "средний",
-    "challenges.difficultyHard": "сложный",
-
-    // challenge run
-    "run.correctPoints": "Верно — +{n} очков",
-    "run.alreadyAnsweredToast": "Вы уже отвечали на этот вопрос — очки на этот раз не начисляются",
-    "run.badgeUnlocked": "Открыт значок — {badge}",
-    "run.opening": "Открываем испытание…",
-    "run.complete": "Испытание завершено",
-    "run.correctLabel": "Верно",
-    "run.pointsEarned": "Заработано очков",
-    "run.accuracy": "Точность",
-    "run.reviewHint": "Очки начисляются один раз за вопрос, поэтому просмотр ответов не изменит ваш результат.",
-    "run.seeLeaderboard": "Смотреть рейтинг",
-    "run.moreChallenges": "Другие испытания",
-    "run.topicLabel": "Тема: {topic}",
-    "run.questionProgress": "Вопрос {n} из {total}",
-    "run.answeredCount": "отвечено: {n}",
-    "run.questionBadge": "Вопрос {n}",
-    "run.notQuite": "Не совсем",
-    "run.pointsAwarded": "+{n} очков",
-    "run.alreadyAnsweredInline": "Уже отвечено — очки повторно не начисляются",
-    "run.nextQuestion": "Следующий вопрос",
-    "run.finish": "Завершить",
-    "run.submitAnswer": "Отправить ответ",
-    "run.submitError": "Не удалось отправить ответ",
-
-    // library — additions
-    "library.loadError": "Не удалось загрузить библиотеку",
-    "library.savedToast": "Сохранено — остаётся в Библиотеке",
-    "library.removeError": "Не удалось удалить",
-    "library.removeFilterAria": "Убрать фильтр «{value}»",
-    "library.sectionsAria": "Разделы библиотеки",
-    "library.pagesCount": "{n} стр.",
-    "library.saveAria": "Сохранить «{title}»",
-    "library.removeFromSavedAria": "Удалить из сохранённого",
-    "library.removeSavedAria": "Удалить «{title}» из сохранённого",
-    "library.levelFoundation": "базовый",
-    "library.levelClinical": "клинический",
-    "library.levelAdvanced": "продвинутый",
-
-    // article
-    "article.loadError": "Не удалось загрузить статью",
-    "article.registerError": "Не удалось это зарегистрировать",
-    "article.commentPosted": "Комментарий опубликован",
-    "article.commentPostError": "Не удалось опубликовать комментарий",
-    "article.commentDeleted": "Комментарий удалён",
-    "article.commentDeleteError": "Не удалось удалить комментарий",
-    "article.loading": "Загружаем статью…",
-    "article.minRead": "{n} мин чтения",
-    "article.share": "Поделиться",
-    "article.comments": "Комментарии",
-    "article.commentPlaceholder": "Добавить к обсуждению…",
-    "article.writeCommentAria": "Написать комментарий",
-    "article.commentHint": "Публикуется под вашим именем и видно другим студентам.",
-    "article.postComment": "Опубликовать комментарий",
-    "article.noComments": "Комментариев пока нет. Будьте первым.",
-    "article.deleteCommentAria": "Удалить комментарий",
-    "article.backToFeed": "Назад в вашу ленту",
-
-    // read (books/PDFs)
-    "read.loadError": "Не удалось загрузить книгу",
-    "read.opening": "Открываем книгу…",
-    "read.notFoundTitle": "Книга не найдена",
-    "read.notFoundBody": "Такого издания нет в библиотеке.",
-    "read.openNewTab": "Открыть в новой вкладке",
-    "read.blockedHint": "Если материал не открывается, браузер блокирует встроенный документ — используйте",
-
-    // watch (video)
-    "watch.loadError": "Не удалось загрузить видео",
-    "watch.loading": "Загружаем видео…",
-    "watch.notFoundTitle": "Видео не найдено",
-    "watch.notFoundBody": "Такого видео нет в библиотеке.",
-
-    // feed
-    "feed.title": "Ваша лента",
-    "feed.subtitle": "Новости медицины, техники обучения и события — с поиском по каждому слову",
-    "feed.tagAll": "Все",
-    "feed.tagMedicalNews": "Новости медицины",
-    "feed.tagStudyTip": "Совет по учёбе",
-    "feed.tagUpcomingEvent": "Ближайшее событие",
-    "feed.tagSponsored": "На правах рекламы",
-    "feed.loadError": "Не удалось загрузить ленту",
-    "feed.searchPlaceholder": "Искать по статьям и их содержанию",
-    "feed.searchAria": "Поиск по ленте",
-    "feed.searchHint": "Ищет по всему тексту каждой статьи, а не только по заголовку.",
-    "feed.readArticle": "Читать статью",
-    "feed.commentAria": "Комментировать «{title}»",
-    "feed.copyLinkAria": "Скопировать ссылку",
-    "feed.noMatch": "По этому запросу ничего не найдено",
-    "feed.noMatchHint": "Попробуйте другой запрос или очистите поиск.",
-    "feed.noMatchQueryBody": "Ни одна статья не содержит «{query}». Попробуйте более общий запрос — поиск охватывает полный текст каждой статьи.",
-    "feed.noMatchFilterBody": "По этому фильтру пока нет статей.",
-
-    // profile — additions
-    "profile.loadError": "Не удалось загрузить профиль",
-    "profile.loading": "Загружаем профиль…",
-    "profile.yearLabel": "{n} курс",
-    "profile.badgesEarnedOf": "Получено {earned} из {total}",
-    "profile.earnedOn": "Получено {date}",
-    "profile.badgesHint2": "Значки открываются за реальную активность — прохождение урока, ответы на вопросы испытаний, сохранение материалов, вступление в сообщества.",
-    "profile.openLeaderboardHint": "Открыть рейтинг",
-    "profile.viewBadgesHint": "Смотреть значки",
-    "profile.viewCommunitiesHint": "Смотреть ваши сообщества",
-    "profile.streakDaysCount": "{n} дн.",
-  },
-
-  uz: {
-    "nav.dashboard": "Boshqaruv",
-    "nav.communities": "Hamjamiyatlar",
-    "nav.challenges": "Sinovlar",
-    "nav.library": "Kutubxona",
-    "nav.profile": "Profil",
-    "nav.settings": "Sozlamalar",
-    "nav.logout": "Chiqish",
-    "nav.premium": "Premium",
-    "nav.aiTraining": "AI o‘qitish",
-    "nav.caseReferences": "Klinik holatlar",
-    "nav.governance": "Boshqaruv nazorati",
-
-    "common.open": "Ochish",
-    "common.read": "O‘qish",
-    "common.watch": "Ko‘rish",
-    "common.save": "Saqlash",
-    "common.saved": "Saqlangan",
-    "common.cancel": "Bekor qilish",
-    "common.clear": "Tozalash",
-    "common.clearAll": "Barchasini tozalash",
-    "common.search": "Qidirish",
-    "common.filter": "Filtr",
-    "common.loading": "Yuklanmoqda…",
-    "common.tryAgain": "Qayta urinish",
-    "common.remove": "O‘chirish",
-    "common.close": "Yopish",
-    "common.somethingWrong": "Nimadir xato ketdi",
-
-    "dashboard.welcome": "Xush kelibsiz",
-    "dashboard.streakKeepGoing": "{n}-kunlik seriya — davom eting.",
-    "dashboard.streakStart": "Seriyani boshlash uchun savolga javob bering yoki darsni tugating.",
-    "dashboard.aiTraining": "AI o‘qitish",
-    "dashboard.imagingWorkbench": "Tasvir tahlili",
-    "dashboard.statRank": "O‘rin",
-    "dashboard.statPoints": "Ballar",
-    "dashboard.statStreak": "Seriya",
-    "dashboard.statBadges": "Nishonlar",
-    "dashboard.ofStudents": "{n} talabadan",
-    "dashboard.earnedFrom": "Sinovlar va testlardan to‘plangan",
-    "dashboard.best": "Eng yaxshisi {n} kun",
-    "dashboard.daysInRow": "Ketma-ket kunlar",
-    "dashboard.viewBadges": "Nishonlarni ko‘rish",
-    "dashboard.featuredChallenge": "Tavsiya etilgan sinov",
-    "dashboard.continueChallenge": "Sinovni davom ettirish",
-    "dashboard.joinChallenge": "Sinovga qo‘shilish",
-    "dashboard.questions": "savol",
-    "dashboard.pts": "ball",
-    "dashboard.joined": "qo‘shilgan",
-    "dashboard.latestFeed": "Lentangizdagi so‘nggilar",
-    "dashboard.openFeed": "Lentani ochish",
-
-    "library.title": "Kutubxona",
-    "library.subtitle": "Videolar va kitoblar — hamda siz saqlagan barcha narsalar",
-    "library.videos": "Videolar",
-    "library.books": "Kitoblar",
-    "library.saved": "Saqlangan",
-    "library.search": "Butun kutubxonadan qidirish…",
-    "library.filter": "Filtr",
-    "library.filters": "Filtrlar",
-    "library.filtersHint": "Katalogdan olingan — faqat mavjud qiymatlar ko‘rsatiladi.",
-    "library.clearAll": "Barchasini tozalash",
-    "library.level": "Daraja",
-    "library.year": "Yil",
-    "library.allYears": "Barcha yillar",
-    "library.subject": "Mavzu",
-    "library.nothingSaved": "Hali hech narsa saqlanmagan",
-    "library.nothingSavedMatches": "Mos saqlangan narsa topilmadi",
-    "library.savedHint": "Video yoki kitobni saqlang — bu yerda to‘planadi. Saqlash uni o‘z bo‘limidan olib tashlamaydi.",
-    "library.browseVideos": "Videolarni ko‘rish",
-    "library.nothingMatches": "Hech narsa topilmadi",
-    "library.tryDifferent": "Boshqa so‘z bilan qidiring yoki filtrlarni tozalang.",
-
-    "communities.title": "Hamjamiyatlar",
-    "communities.subtitle": "Qiziqishingizga mos hamjamiyatlarga qo‘shiling",
-    "communities.create": "Hamjamiyat yaratish",
-    "communities.cancel": "Bekor qilish",
-    "communities.premiumToCreate": "Yaratish uchun Premium",
-    "communities.premiumFeatureTitle": "Hamjamiyat yaratish — Premium imkoniyati",
-    "communities.premiumFeatureBody": "Siz Medly’dagi istalgan hamjamiyatga qo‘shilishingiz mumkin. O‘z hamjamiyatingizni yaratish uchun Premium kerak — bu qoida serverda ta’minlanadi.",
-    "communities.new": "Yangi hamjamiyat",
-    "communities.namePlaceholder": "Hamjamiyat nomi",
-    "communities.descPlaceholder": "Bu hamjamiyat nima uchun? Bu qator sarlavha ostida chiqadi va qidiruvda ishlatiladi.",
-    "communities.specialtyPlaceholder": "Yo‘nalish, masalan Kardiologiya",
-    "communities.createButton": "Hamjamiyat yaratish",
-    "communities.searchPlaceholder": "Hamjamiyatlarni nomi yoki tavsifi bo‘yicha qidirish…",
-    "communities.filterAll": "Barchasi",
-    "communities.filterMine": "Mening hamjamiyatlarim",
-    "communities.filterPopular": "Mashhur",
-    "communities.filterNew": "Yangi",
-    "communities.notFound": "Hamjamiyatlar topilmadi",
-    "communities.clearSearch": "Qidiruvni tozalash",
-    "communities.members": "a'zo",
-    "communities.messages": "xabar",
-    "communities.openChat": "Chatni ochish",
-    "communities.join": "Qo‘shilish",
-    "communities.leave": "Tark etish",
-    "communities.joined": "Qo‘shilgan",
-    "communities.yours": "Sizniki",
-
-    "room.backToCommunities": "Hamjamiyatlar",
-    "room.leaveCommunity": "Hamjamiyatni tark etish",
-    "room.joinCommunity": "Hamjamiyatga qo‘shilish",
-    "room.noMessages": "Hali xabar yo‘q",
-    "room.startConversation": "Suhbatni boshlang — savol bering yoki holat ulashing.",
-    "room.messagePlaceholder": "{name} ga xabar…",
-    "room.send": "Yuborish",
-    "room.sendingJoins": "Xabar yuborsangiz, avtomatik ravishda hamjamiyatga qo‘shilasiz.",
-
-    "challenges.title": "Sinovlar va reyting",
-    "challenges.subtitle": "To‘g‘ri javob bering, ball to‘plang, reytingda ko‘tariling",
-    "challenges.totalPoints": "Jami ball",
-    "challenges.ofStudents": "{n} talabadan",
-    "challenges.started": "Boshlangan sinovlar",
-    "challenges.active": "Faol sinovlar",
-    "challenges.noneRunning": "Hozircha faol sinovlar yo‘q",
-    "challenges.checkBack": "Birozdan so‘ng qaytib ko‘ring — har hafta yangi sinovlar e’lon qilinadi.",
-    "challenges.joined": "qo‘shilgan",
-    "challenges.reviewAnswers": "Javoblarni ko‘rish",
-    "challenges.continue": "Sinovni davom ettirish",
-    "challenges.join": "Sinovga qo‘shilish",
-    "challenges.topLeaderboard": "Reyting yetakchilari",
-    "challenges.fullRanking": "To‘liq reyting",
-    "challenges.noScores": "Hali natijalar yo‘q. Reytingga tushish uchun sinov savoliga javob bering.",
-
-    "profile.rank": "O‘rin",
-    "profile.globalRank": "Umumiy o‘rin",
-    "profile.totalPoints": "Jami ball",
-    "profile.badgesEarned": "Olingan nishonlar",
-    "profile.communities": "Hamjamiyatlar",
-    "profile.overview": "Umumiy",
-    "profile.badges": "Nishonlar",
-    "profile.activity": "Faoliyat",
-    "profile.learning": "O‘qish",
-    "profile.lessonsCompleted": "Tugallangan darslar",
-    "profile.challengesStarted": "Boshlangan sinovlar",
-    "profile.currentStreak": "Joriy seriya",
-    "profile.continueTraining": "AI o‘qitishni davom ettirish",
-    "profile.libraryDiscussion": "Kutubxona va muhokama",
-    "profile.savedItems": "Saqlangan materiallar",
-    "profile.commentsWritten": "Yozilgan izohlar",
-    "profile.communitiesJoined": "Qo‘shilgan hamjamiyatlar",
-    "profile.openSaved": "Saqlanganlarni ochish",
-    "profile.findMore": "Ko‘proq topish",
-    "profile.notJoined": "Siz hali hech qanday hamjamiyatga qo‘shilmagansiz",
-    "profile.notJoinedHint": "Hamjamiyatlarda darslar orasida holatlar muhokama qilinadi.",
-    "profile.browseCommunities": "Hamjamiyatlarni ko‘rish",
-    "profile.recentActivity": "So‘nggi faoliyat",
-    "profile.nothingRecorded": "Hali hech narsa qayd etilmagan",
-    "profile.nothingRecordedHint": "Sinov savoliga javob bering yoki darsni tugating — bu yerda ko‘rinadi.",
-
-    "settings.title": "Sozlamalar",
-    "settings.subtitle": "Hisobingiz, maxfiylik va Medly’ning bu qurilmada ko‘rinishi",
-    "settings.account": "Hisob",
-    "settings.accountDesc": "Medly’da qanday ko‘rinasiz",
-    "settings.fullName": "To‘liq ism",
-    "settings.institution": "Ta’lim muassasasi",
-    "settings.yearOfStudy": "O‘qish yili",
-    "settings.email": "Email",
-    "settings.role": "Rol",
-    "settings.uneditableHint": "Email va rolni muassasangiz belgilaydi — bu yerda o‘zgartirib bo‘lmaydi.",
-    "settings.saveChanges": "O‘zgarishlarni saqlash",
-    "settings.security": "Xavfsizlik",
-    "settings.securityDesc": "Parolni o‘zgartirish",
-    "settings.currentPassword": "Joriy parol",
-    "settings.newPassword": "Yangi parol",
-    "settings.confirmPassword": "Yangi parolni tasdiqlang",
-    "settings.passwordHint": "Kamida 8 belgi. Joriy parolingiz talab qilinadi.",
-    "settings.changePassword": "Parolni o‘zgartirish",
-    "settings.privacy": "Maxfiylik",
-    "settings.privacyDesc": "Boshqa talabalar nimani ko‘radi va Medly nimani saqlaydi",
-    "settings.showOnLeaderboard": "Meni reytingda ko‘rsatish",
-    "settings.showOnLeaderboardHint": "O‘chirsangiz, ismingiz ochiq reytingdan yo‘qoladi. O‘rningiz baribir hisoblanadi va sizga ko‘rsatiladi.",
-    "settings.assistantHistory": "Yordamchi bilan suhbat tarixi",
-    "settings.assistantHistoryHint": "O‘quv yordamchisi bilan almashgan barcha xabarlaringizni o‘chiradi.",
-    "settings.deleteHistory": "Yordamchi tarixini o‘chirish",
-    "settings.patientData": "Bemor ma’lumotlari",
-    "settings.patientDataHint": "Medly hech qachon bemorni aniqlaydigan ma’lumotlarni saqlamaydi. Holat tasvirlari anonimlashtiriladi va o‘qituvchi tomonidan tasdiqlanadi.",
-    "settings.seeStandard": "Xavfsizlik standartini ko‘rish",
-    "settings.appearance": "Ko‘rinish",
-    "settings.appearanceDesc": "Faqat shu brauzerga tegishli",
-    "settings.theme": "Mavzu",
-    "settings.light": "Yorug‘",
-    "settings.dark": "Qorong‘i",
-    "settings.system": "Tizim",
-    "settings.reduceMotion": "Animatsiyani kamaytirish",
-    "settings.reduceMotionHint": "Ilova bo‘ylab kartalar ko‘tarilishi va paydo bo‘lish animatsiyalarini o‘chiradi.",
-    "settings.language": "Til",
-    "settings.languageDesc": "Medly interfeysi tilini tanlang",
-    "settings.session": "Sessiya",
-    "settings.sessionDesc": "Bu qurilmadan chiqish",
-    "settings.signOutHint": "Chiqish ushbu brauzerda saqlangan tokenni tozalaydi. Saqlangan materiallar, ballar va progress serverda saqlanadi va keyingi kirishda kutib turadi.",
-    "settings.logOut": "Chiqish",
-    "settings.loading": "Sozlamalar yuklanmoqda…",
-    "settings.accountSaved": "Hisob ma’lumotlari saqlandi",
-    "settings.accountSaveError": "Ma’lumotlaringizni saqlab bo‘lmadi",
-    "settings.passwordMismatch": "Ikkita yangi parol bir xil emas",
-    "settings.passwordChanged": "Parol o‘zgartirildi",
-    "settings.passwordChangeError": "Parolni o‘zgartirib bo‘lmadi",
-    "settings.leaderboardShown": "Siz reytingda ko‘rinasiz",
-    "settings.leaderboardHidden": "Siz reytingdan yashiringansiz",
-    "settings.privacyUpdateError": "Buni yangilab bo‘lmadi",
-    "settings.historyDeleted": "Yordamchi tarixi o‘chirildi",
-    "settings.historyDeleteError": "Tarixni tozalab bo‘lmadi",
-    "settings.languageUpdated": "Til yangilandi",
-    "settings.institutionPlaceholder": "masalan, Toshkent davlat universiteti",
-    "settings.yearPlaceholder": "masalan, 3",
-    "settings.sectionsAria": "Sozlamalar bo‘limlari",
-
-    // common — additions
-    "common.you": "Siz",
-    "common.done": "bajarildi",
-    "common.previous": "Oldingi",
-    "common.back": "Orqaga",
-    "common.premium": "Premium",
-    "common.freePlan": "Bepul",
-    "common.thatDidNotWork": "Bu ishlamadi",
-    "common.couldNotSave": "Saqlab bo‘lmadi",
-    "common.savedToCollection": "To‘plamingizga saqlandi",
-    "common.removedFromSaved": "Saqlanganlardan olib tashlandi",
-    "common.linkCopied": "Havola nusxalandi",
-    "common.copyThisLink": "Bu havolani nusxalang",
-    "common.clearSearch": "Qidiruvni tozalash",
-    "common.minAgo": "{n} daqiqa oldin",
-    "common.hoursAgo": "{n} soat oldin",
-    "common.daysAgo": "{n} kun oldin",
-
-    // dashboard — additions
-    "dashboard.loadError": "Boshqaruv panelini yuklab bo‘lmadi",
-
-    // communities — additions
-    "communities.loadError": "Hamjamiyatlarni yuklab bo‘lmadi",
-    "communities.joinedToast": "«{name}»ga qo‘shildingiz",
-    "communities.leftToast": "«{name}»ni tark etdingiz",
-    "communities.createdToast": "«{name}» yaratildi",
-    "communities.createError": "Hamjamiyatni yaratib bo‘lmadi",
-    "communities.descriptionLabel": "Tavsif",
-    "communities.specialtyLabel": "Yo‘nalish",
-    "communities.noMatchQuery": "«{query}» so‘roviga mos hamjamiyat nomi yoki tavsifi topilmadi.",
-    "communities.noMatchFilter": "Bu filtr bo‘yicha hozircha hech narsa yo‘q.",
-
-    // community room — additions
-    "room.loadError": "Bu hamjamiyatni ochib bo‘lmadi",
-    "room.sendError": "Xabar yuborilmadi",
-    "room.opening": "Hamjamiyat ochilmoqda…",
-    "room.messageAria": "Xabar",
-
-    // challenges — additions
-    "challenges.loadError": "Sinovlarni yuklab bo‘lmadi",
-    "challenges.openError": "Bu sinovni ochib bo‘lmadi",
-    "challenges.noDeadline": "Muddat yo‘q",
-    "challenges.closed": "Yakunlangan",
-    "challenges.hoursLeft": "{n} soat qoldi",
-    "challenges.daysHoursLeft": "{d} kun {h} soat qoldi",
-    "challenges.answeredSummary": "{total} tadan {answered} tasiga javob berildi · {pts} ball to‘plandi",
-    "challenges.difficultyEasy": "oson",
-    "challenges.difficultyMedium": "o‘rta",
-    "challenges.difficultyHard": "qiyin",
-
-    // challenge run
-    "run.correctPoints": "To‘g‘ri — +{n} ball",
-    "run.alreadyAnsweredToast": "Siz bu savolga allaqachon javob bergansiz — bu safar ball berilmaydi",
-    "run.badgeUnlocked": "Nishon ochildi — {badge}",
-    "run.opening": "Sinov ochilmoqda…",
-    "run.complete": "Sinov yakunlandi",
-    "run.correctLabel": "To‘g‘ri",
-    "run.pointsEarned": "To‘plangan ballar",
-    "run.accuracy": "Aniqlik",
-    "run.reviewHint": "Ball har bir savol uchun faqat bir marta beriladi, shuning uchun javoblarni ko‘rib chiqish natijangizni o‘zgartirmaydi.",
-    "run.seeLeaderboard": "Reytingni ko‘rish",
-    "run.moreChallenges": "Boshqa sinovlar",
-    "run.topicLabel": "Mavzu: {topic}",
-    "run.questionProgress": "{total} tadan {n}-savol",
-    "run.answeredCount": "{n} ta javob berildi",
-    "run.questionBadge": "{n}-savol",
-    "run.notQuite": "Unchalik emas",
-    "run.pointsAwarded": "+{n} ball",
-    "run.alreadyAnsweredInline": "Allaqachon javob berilgan — ball qayta berilmaydi",
-    "run.nextQuestion": "Keyingi savol",
-    "run.finish": "Yakunlash",
-    "run.submitAnswer": "Javobni yuborish",
-    "run.submitError": "Javobni yuborib bo‘lmadi",
-
-    // library — additions
-    "library.loadError": "Kutubxonani yuklab bo‘lmadi",
-    "library.savedToast": "Saqlandi — Kutubxonada qoladi",
-    "library.removeError": "O‘chirib bo‘lmadi",
-    "library.removeFilterAria": "«{value}» filtrini olib tashlash",
-    "library.sectionsAria": "Kutubxona bo‘limlari",
-    "library.pagesCount": "{n} bet",
-    "library.saveAria": "«{title}»ni saqlash",
-    "library.removeFromSavedAria": "Saqlanganlardan olib tashlash",
-    "library.removeSavedAria": "«{title}»ni saqlanganlardan olib tashlash",
-    "library.levelFoundation": "boshlang‘ich",
-    "library.levelClinical": "klinik",
-    "library.levelAdvanced": "ilg‘or",
-
-    // article
-    "article.loadError": "Maqolani yuklab bo‘lmadi",
-    "article.registerError": "Buni qayd qilib bo‘lmadi",
-    "article.commentPosted": "Izoh joylandi",
-    "article.commentPostError": "Izohni joylab bo‘lmadi",
-    "article.commentDeleted": "Izoh o‘chirildi",
-    "article.commentDeleteError": "Izohni o‘chirib bo‘lmadi",
-    "article.loading": "Maqola yuklanmoqda…",
-    "article.minRead": "{n} daqiqalik o‘qish",
-    "article.share": "Ulashish",
-    "article.comments": "Izohlar",
-    "article.commentPlaceholder": "Muhokamaga qo‘shiling…",
-    "article.writeCommentAria": "Izoh yozish",
-    "article.commentHint": "Ismingiz ostida joylanadi va boshqa talabalarga ko‘rinadi.",
-    "article.postComment": "Izohni joylash",
-    "article.noComments": "Hali izohlar yo‘q. Birinchi bo‘ling.",
-    "article.deleteCommentAria": "Izohni o‘chirish",
-    "article.backToFeed": "Lentangizga qaytish",
-
-    // read (books/PDFs)
-    "read.loadError": "Kitobni yuklab bo‘lmadi",
-    "read.opening": "Kitob ochilmoqda…",
-    "read.notFoundTitle": "Kitob topilmadi",
-    "read.notFoundBody": "Bu nashr kutubxonada yo‘q.",
-    "read.openNewTab": "Yangi varaqda ochish",
-    "read.blockedHint": "Agar o‘quvchi ochilmasa, brauzeringiz o‘rnatilgan hujjatni bloklamoqda — quyidagidan foydalaning",
-
-    // watch (video)
-    "watch.loadError": "Videoni yuklab bo‘lmadi",
-    "watch.loading": "Video yuklanmoqda…",
-    "watch.notFoundTitle": "Video topilmadi",
-    "watch.notFoundBody": "Bu video kutubxonada yo‘q.",
-
-    // feed
-    "feed.title": "Sizning lentangiz",
-    "feed.subtitle": "Tibbiyot yangiliklari, o‘qish texnikasi va tadbirlar — har bir so‘z bo‘yicha qidirish mumkin",
-    "feed.tagAll": "Barchasi",
-    "feed.tagMedicalNews": "Tibbiyot yangiliklari",
-    "feed.tagStudyTip": "O‘qish maslahati",
-    "feed.tagUpcomingEvent": "Yaqinlashayotgan tadbir",
-    "feed.tagSponsored": "Reklama",
-    "feed.loadError": "Lentani yuklab bo‘lmadi",
-    "feed.searchPlaceholder": "Maqolalar va ularning matnidan qidirish",
-    "feed.searchAria": "Lentangizdan qidirish",
-    "feed.searchHint": "Faqat sarlavha emas, har bir maqolaning to‘liq matnidan qidiradi.",
-    "feed.readArticle": "Maqolani o‘qish",
-    "feed.commentAria": "«{title}»ga izoh qoldirish",
-    "feed.copyLinkAria": "Havolani nusxalash",
-    "feed.noMatch": "Bu so‘rovga mos narsa topilmadi",
-    "feed.noMatchHint": "Boshqa so‘z bilan qidiring yoki qidiruvni tozalang.",
-    "feed.noMatchQueryBody": "Hech bir maqolada «{query}» so‘zi yo‘q. Kengroq so‘z bilan qidiring — qidiruv har bir maqolaning to‘liq matnini qamrab oladi.",
-    "feed.noMatchFilterBody": "Bu filtr bo‘yicha hali maqolalar yo‘q.",
-
-    // profile — additions
-    "profile.loadError": "Profilingizni yuklab bo‘lmadi",
-    "profile.loading": "Profil yuklanmoqda…",
-    "profile.yearLabel": "{n}-kurs",
-    "profile.badgesEarnedOf": "{total} tadan {earned} tasi olingan",
-    "profile.earnedOn": "{date} olingan",
-    "profile.badgesHint2": "Nishonlar haqiqiy faoliyat orqali ochiladi — darsni tugatish, sinov savollariga javob berish, materiallarni saqlash, hamjamiyatlarga qo‘shilish.",
-    "profile.openLeaderboardHint": "Reytingni ochish",
-    "profile.viewBadgesHint": "Nishonlarni ko‘rish",
-    "profile.viewCommunitiesHint": "Hamjamiyatlaringizni ko‘rish",
-    "profile.streakDaysCount": "{n} kun",
-  },
-};
-
-const KEY = "medly_lang";
-
-export function readLang(): Lang {
+/** Locales fetched so far. English is present from the first render. */
+const loaded: Partial<Record<Lang, Table>> = { en };
+
+/** In-flight fetches, so two components mounting at once share one request. */
+const pending: Partial<Record<Lang, Promise<Table>>> = {};
+
+async function loadLang(lang: Lang): Promise<Table> {
+  if (loaded[lang]) return loaded[lang]!;
+  if (pending[lang]) return pending[lang]!;
+
+  const request = (async () => {
+    // Vite turns these into separate chunks, so ru/uz cost nothing until used.
+    const mod =
+      lang === "ru"
+        ? await import("@/locales/ru")
+        : await import("@/locales/uz");
+    loaded[lang] = mod.default;
+    return mod.default;
+  })();
+
+  pending[lang] = request;
   try {
-    const stored = localStorage.getItem(KEY) as Lang | null;
-    if (stored && LANGUAGES.some((item) => item.code === stored)) return stored;
-  } catch {
-    /* private browsing */
+    return await request;
+  } finally {
+    delete pending[lang];
   }
-  return "en";
 }
 
-interface LanguageContextValue {
-  lang: Lang;
-  setLang: (next: Lang) => void;
-  /** Resolves a key through the active table, English, then the fallback/key itself.
-   *  Supports `{n}` / `{name}` style interpolation via `vars`. */
-  t: (key: string, vars?: Record<string, string | number>, fallback?: string) => string;
+// --------------------------------------------------------------------------
+// Missing keys
+// --------------------------------------------------------------------------
+
+/** Warn once per key. A missing string in a loop must not flood the console. */
+const warned = new Set<string>();
+
+function reportMissing(lang: Lang, key: string) {
+  if (!import.meta.env.DEV) return;
+  const id = `${lang}:${key}`;
+  if (warned.has(id)) return;
+  warned.add(id);
+  // Loud on purpose. A silent fallback to English is how a half-translated
+  // screen ships without anyone noticing.
+  console.warn(
+    `[i18n] missing "${key}" for "${lang}". ` +
+      (lang === SOURCE_LANG
+        ? "Add it to src/locales/en/<namespace>.json."
+        : "Run `npm run i18n:translate` to fill it in.")
+  );
 }
 
-function interpolate(template: string, vars?: Record<string, string | number>): string {
+/** Every key that fell back during this session. Used by the dev overlay/tests. */
+export function missingKeys(): string[] {
+  return [...warned];
+}
+
+// --------------------------------------------------------------------------
+// Formatting
+// --------------------------------------------------------------------------
+
+const LOCALE: Record<Lang, string> = { en: "en-GB", ru: "ru-RU", uz: "uz-UZ" };
+
+/** `{name}` / `{n}` placeholders. Values are substituted, never evaluated. */
+function interpolate(
+  template: string,
+  vars?: Record<string, string | number>
+): string {
   if (!vars) return template;
   return Object.entries(vars).reduce(
     (acc, [name, value]) => acc.split(`{${name}}`).join(String(value)),
@@ -1182,33 +115,154 @@ function interpolate(template: string, vars?: Record<string, string | number>): 
 }
 
 /**
- * Resolve a key for an explicit language rather than the active one.
+ * Plural selection.
  *
- * `useLanguage().t` is bound to the language the component last rendered
- * with. Code that calls `setLang(next)` and then immediately needs a string
- * *in `next`* — e.g. the confirmation toast the language switcher itself
- * shows — cannot wait for the re-render `t` would need, so it calls this
- * instead.
+ * A key may provide `key_one` / `key_few` / `key_many` / `key_other`; the
+ * category comes from `Intl.PluralRules`, so Russian gets its three forms and
+ * Uzbek its single one without either being hardcoded here. Falls back to the
+ * bare key when a translation has not been pluralised.
+ */
+function pluralKey(table: Table, key: string, count: number, lang: Lang): string {
+  const category = new Intl.PluralRules(LOCALE[lang]).select(count);
+  for (const candidate of [`${key}_${category}`, `${key}_other`, key]) {
+    if (table[candidate] !== undefined) return candidate;
+  }
+  return key;
+}
+
+export function formatNumber(value: number, lang: Lang): string {
+  return new Intl.NumberFormat(LOCALE[lang]).format(value);
+}
+
+export function formatDate(iso: string, lang: Lang): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  return new Intl.DateTimeFormat(LOCALE[lang], {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(date);
+}
+
+export function formatDateTime(iso: string, lang: Lang): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  return new Intl.DateTimeFormat(LOCALE[lang], {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
+// --------------------------------------------------------------------------
+// Lookup
+// --------------------------------------------------------------------------
+
+export interface TranslateOptions extends Record<string, string | number> {}
+
+function lookup(
+  lang: Lang,
+  key: string,
+  vars?: Record<string, string | number>
+): string {
+  const table = loaded[lang] ?? en;
+  const count = typeof vars?.count === "number" ? vars.count : undefined;
+  const resolved = count !== undefined ? pluralKey(table, key, count, lang) : key;
+
+  const hit = table[resolved];
+  if (hit !== undefined) return interpolate(hit, vars);
+
+  // Fall back to English, then to the key itself so a screen never renders
+  // blank — but say so in development either way.
+  reportMissing(lang, key);
+  const fallbackKey = count !== undefined ? pluralKey(en, key, count, SOURCE_LANG) : key;
+  const fallback = en[fallbackKey];
+  if (fallback !== undefined) return interpolate(fallback, vars);
+
+  if (import.meta.env.DEV) return `⟨${key}⟩`;
+  return key;
+}
+
+/**
+ * Translate for a language other than the active one.
+ *
+ * Needed where a component must render in the language just chosen, before
+ * React has re-rendered with the new context — the Settings confirmation
+ * toast, for instance.
  */
 export function translateFor(
   lang: Lang,
   key: string,
   vars?: Record<string, string | number>
 ): string {
-  return interpolate(STRINGS[lang][key] ?? STRINGS.en[key] ?? key, vars);
+  return lookup(lang, key, vars);
+}
+
+// --------------------------------------------------------------------------
+// Persistence and context
+// --------------------------------------------------------------------------
+
+const KEY = "medly_lang";
+
+export function readLang(): Lang {
+  try {
+    const stored = localStorage.getItem(KEY) as Lang | null;
+    if (stored && LANGUAGES.some((item) => item.code === stored)) return stored;
+  } catch {
+    /* private browsing — fall through to the default */
+  }
+  return SOURCE_LANG;
+}
+
+interface LanguageContextValue {
+  lang: Lang;
+  setLang: (next: Lang) => void;
+  t: (key: string, vars?: Record<string, string | number>) => string;
+  /** True while a non-English locale is still downloading. */
+  loading: boolean;
+  formatNumber: (value: number) => string;
+  formatDate: (iso: string) => string;
+  formatDateTime: (iso: string) => string;
 }
 
 const LanguageContext = createContext<LanguageContextValue>({
-  lang: "en",
+  lang: SOURCE_LANG,
   setLang: () => {},
-  t: (key, vars, fallback) => interpolate(fallback ?? STRINGS.en[key] ?? key, vars),
+  t: (key, vars) => lookup(SOURCE_LANG, key, vars),
+  loading: false,
+  formatNumber: (value) => formatNumber(value, SOURCE_LANG),
+  formatDate: (iso) => formatDate(iso, SOURCE_LANG),
+  formatDateTime: (iso) => formatDateTime(iso, SOURCE_LANG),
 });
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
   const [lang, setLangState] = useState<Lang>(readLang);
+  const [, setReady] = useState(0);
+  const [loading, setLoading] = useState(false);
 
+  // Fetch the stored language on mount, and any language chosen later. Until
+  // it arrives the UI renders English rather than blanking.
   useEffect(() => {
     document.documentElement.lang = lang;
+    if (loaded[lang]) return;
+
+    let cancelled = false;
+    setLoading(true);
+    loadLang(lang)
+      .then(() => {
+        if (!cancelled) setReady((n) => n + 1);
+      })
+      .catch((error) => {
+        // A failed chunk must not take the app down; English still renders.
+        console.error(`[i18n] could not load "${lang}"`, error);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [lang]);
 
   const setLang = useCallback((next: Lang) => {
@@ -1219,15 +273,31 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
       /* private browsing — the choice simply does not persist */
     }
     document.documentElement.lang = next;
+    // Warm the cache so the switch is not gated on the render pass.
+    void loadLang(next);
   }, []);
 
   const t = useCallback(
-    (key: string, vars?: Record<string, string | number>, fallback?: string) =>
-      interpolate(STRINGS[lang][key] ?? STRINGS.en[key] ?? fallback ?? key, vars),
-    [lang]
+    (key: string, vars?: Record<string, string | number>) => lookup(lang, key, vars),
+    // `loaded` is a module-level cache, so a finished download has to be
+    // signalled explicitly for memoised consumers to pick it up.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [lang, loading]
   );
 
-  const value = useMemo(() => ({ lang, setLang, t }), [lang, setLang, t]);
+  const value = useMemo(
+    () => ({
+      lang,
+      setLang,
+      t,
+      loading,
+      formatNumber: (value: number) => formatNumber(value, lang),
+      formatDate: (iso: string) => formatDate(iso, lang),
+      formatDateTime: (iso: string) => formatDateTime(iso, lang),
+    }),
+    [lang, setLang, t, loading]
+  );
+
   return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>;
 }
 

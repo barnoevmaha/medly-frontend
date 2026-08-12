@@ -21,6 +21,7 @@ import {
   type VpResult,
   type VpSession,
 } from "@/lib/api";
+import { useLanguage } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 /**
@@ -47,6 +48,7 @@ export default function VirtualPatientRun() {
   const { sessionId = "" } = useParams();
   const id = Number(sessionId);
   const toast = useToast();
+  const { t } = useLanguage();
 
   const [session, setSession] = useState<VpSession | null>(null);
   const [bubbles, setBubbles] = useState<Bubble[]>([]);
@@ -95,7 +97,7 @@ export default function VirtualPatientRun() {
      server says the student is — the client keeps no authoritative state. */
   const begin = useCallback(async () => {
     if (!Number.isFinite(id) || id <= 0) {
-      setError("That session link is not valid.");
+      setError(t("virtualPatient.sessionInvalid"));
       setLoading(false);
       return;
     }
@@ -118,10 +120,10 @@ export default function VirtualPatientRun() {
     } catch (e) {
       setError(
         e instanceof ApiError && e.status === 404
-          ? "This session is no longer available."
+          ? t("virtualPatient.sessionGone")
           : e instanceof Error
             ? e.message
-            : "Could not open this session"
+            : t("virtualPatient.couldNotOpenSession")
       );
     } finally {
       setLoading(false);
@@ -178,13 +180,13 @@ export default function VirtualPatientRun() {
       // happened, so the selection is rolled back.
       setSelected(null);
       if (e instanceof ApiError && e.status === 409) {
-        toast("That move is no longer valid — reloading the case.", "error");
+        toast(t("virtualPatient.staleMove"), "error");
         void begin();
       } else if (e instanceof ApiError && e.status === 404) {
-        setError("This session is no longer available.");
+        setError(t("virtualPatient.sessionGone"));
       } else {
         toast(
-          e instanceof Error ? e.message : "Could not submit that decision",
+          e instanceof Error ? e.message : t("virtualPatient.couldNotSubmit"),
           "error"
         );
       }
@@ -210,7 +212,7 @@ export default function VirtualPatientRun() {
       setResult(await api.vpResult(session.session_id));
     } catch (e) {
       toast(
-        e instanceof Error ? e.message : "Could not load the debrief",
+        e instanceof Error ? e.message : t("virtualPatient.couldNotLoadDebrief"),
         "error"
       );
     } finally {
@@ -218,12 +220,12 @@ export default function VirtualPatientRun() {
     }
   }
 
-  if (loading) return <LoadingState label="Preparing the case…" />;
+  if (loading) return <LoadingState label={t("virtualPatient.loadingCase")} />;
 
   if (error || !session) {
     return (
       <ErrorState
-        title="Could not open this case"
+        title={t("virtualPatient.couldNotOpenCase")}
         message={error ?? undefined}
         onRetry={() => void begin()}
       />
@@ -239,7 +241,8 @@ export default function VirtualPatientRun() {
      stage that was just answered. */
   const decisionOptions = verdict ? answeredRef.current.options : stage.options;
   const decisionPrompt =
-    (verdict ? answeredRef.current.prompt : stage.prompt) || "What do you do next?";
+    (verdict ? answeredRef.current.prompt : stage.prompt) ||
+    t("virtualPatient.defaultPrompt");
 
   // ----------------------------------------------------------------- result
   if (result) {
@@ -253,7 +256,7 @@ export default function VirtualPatientRun() {
         className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-        Virtual Patient
+        {t("virtualPatient.title")}
       </Link>
 
       <div className="grid gap-5 lg:grid-cols-[300px_1fr]">
@@ -275,7 +278,9 @@ export default function VirtualPatientRun() {
 
           <Card className="p-5">
             <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Decision {stageNumber}</span>
+              <span className="text-muted-foreground">
+                {t("virtualPatient.decisionNumber", { n: stageNumber })}
+              </span>
               <span className="font-display font-bold">
                 {session.score}
                 <span className="text-xs font-normal text-muted-foreground">
@@ -285,7 +290,7 @@ export default function VirtualPatientRun() {
             </div>
             <Progress className="mt-2" value={(session.score / total) * 100} />
             <p className="mt-2 text-xs text-muted-foreground">
-              Points so far. The remaining stages are not shown in advance.
+              {t("virtualPatient.pointsSoFar")}
             </p>
           </Card>
         </aside>
@@ -306,7 +311,7 @@ export default function VirtualPatientRun() {
               className="flex-1 space-y-3 overflow-y-auto p-5"
               role="log"
               aria-live="polite"
-              aria-label="Case transcript"
+              aria-label={t("virtualPatient.transcript")}
             >
               {bubbles.map((bubble) =>
                 bubble.speaker === "patient" ? (
@@ -323,7 +328,7 @@ export default function VirtualPatientRun() {
                       {bubble.narrated && (
                         <p className="mt-1 flex items-center gap-1 text-[10px] text-muted-foreground">
                           <Sparkles className="h-2.5 w-2.5" aria-hidden="true" />
-                          Phrased by Medly AI from the case notes
+                          {t("virtualPatient.narratedNote")}
                         </p>
                       )}
                     </div>
@@ -359,10 +364,10 @@ export default function VirtualPatientRun() {
                 <div className="min-w-0 flex-1">
                   <p className="font-display font-bold">
                     {verdict.was_correct
-                      ? "Correct"
+                      ? t("virtualPatient.correct")
                       : verdict.was_harmful
-                        ? "This harmed the patient"
-                        : "Not the best choice"}
+                        ? t("virtualPatient.harmed")
+                        : t("virtualPatient.notTheBest")}
                     {verdict.score_delta > 0 && (
                       <span className="ml-2 text-sm font-medium text-success">
                         +{verdict.score_delta}
@@ -372,12 +377,14 @@ export default function VirtualPatientRun() {
                   <p className="mt-1 text-sm text-muted-foreground">{verdict.feedback}</p>
                   {verdict.patient_state_before !== verdict.patient_state_after && (
                     <p className="mt-2 text-xs font-medium">
-                      Patient condition: {verdict.patient_state_before} →{" "}
-                      {verdict.patient_state_after}
+                      {t("virtualPatient.conditionChange", {
+                        before: verdict.patient_state_before,
+                        after: verdict.patient_state_after,
+                      })}
                     </p>
                   )}
                   <Button className="mt-4" size="sm" onClick={advance}>
-                    {verdict.finished ? "See the result" : "Continue"}
+                    {verdict.finished ? t("virtualPatient.seeResult") : t("common.continue")}
                     <ArrowRight className="h-4 w-4" aria-hidden="true" />
                   </Button>
                 </div>
@@ -407,10 +414,12 @@ export default function VirtualPatientRun() {
 
           {!verdict && stage.is_terminal && (
             <Card className="p-5 text-center">
-              <p className="text-sm text-muted-foreground">This case has ended.</p>
+              <p className="text-sm text-muted-foreground">
+                {t("virtualPatient.caseEnded")}
+              </p>
               <Button className="mt-3" onClick={() => void openResult()} disabled={loadingResult}>
                 {loadingResult && <Loader2 className="h-4 w-4 animate-spin" />}
-                See the result
+                {t("virtualPatient.seeResult")}
               </Button>
             </Card>
           )}
@@ -435,6 +444,7 @@ function ResultScreen({
 }) {
   const navigate = useNavigate();
   const toast = useToast();
+  const { t } = useLanguage();
   const [replaying, setReplaying] = useState(false);
 
   async function replay() {
@@ -443,7 +453,7 @@ function ResultScreen({
       const fresh = await api.vpStart(caseSlug);
       navigate(`/virtual-patient/session/${fresh.session_id}`);
     } catch (e) {
-      toast(e instanceof Error ? e.message : "Could not restart the case", "error");
+      toast(e instanceof Error ? e.message : t("virtualPatient.couldNotStart"), "error");
       setReplaying(false);
     }
   }
@@ -465,7 +475,7 @@ function ResultScreen({
         className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-        Virtual Patient
+        {t("virtualPatient.title")}
       </Link>
 
       <Card className="mb-5 p-6 shadow-medium md:p-8">
@@ -478,24 +488,24 @@ function ResultScreen({
           <div className="min-w-0 flex-1 text-center sm:text-left">
             <div className="flex flex-wrap justify-center gap-2 sm:justify-start">
               <Badge variant={result.passed ? "success" : "warning"}>
-                {result.passed ? "Passed" : "Did not pass"}
+                {result.passed ? t("virtualPatient.passed") : t("virtualPatient.didNotPass")}
               </Badge>
               <Badge variant={survived ? "muted" : "accent"}>
-                {survived ? "Patient survived" : "Patient did not survive"}
+                {survived ? t("virtualPatient.patientSurvived") : t("virtualPatient.patientDied")}
               </Badge>
             </div>
             <h1 className="mt-3 font-display text-2xl font-bold md:text-3xl">
               {result.case_title}
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Final condition: <span className="font-medium">{result.patient_state}</span>
+              {t("virtualPatient.finalCondition", { state: result.patient_state })}
             </p>
 
             <div className="mt-5 grid grid-cols-3 gap-3">
               {[
-                { label: "Score", value: `${result.score}/${result.max_score}` },
-                { label: "Clinical reasoning", value: `${reasoning}%` },
-                { label: "Patient safety", value: `${safety}%` },
+                { label: t("virtualPatient.score"), value: `${result.score}/${result.max_score}` },
+                { label: t("virtualPatient.clinicalReasoning"), value: `${reasoning}%` },
+                { label: t("virtualPatient.patientSafety"), value: `${safety}%` },
               ].map((stat) => (
                 <div key={stat.label} className="rounded-xl border border-border p-3">
                   <div className="font-display text-xl font-bold">{stat.value}</div>
@@ -510,7 +520,7 @@ function ResultScreen({
       <Card className="mb-5 p-6">
         <h2 className="flex items-center gap-2 font-display text-lg font-bold">
           <ClipboardList className="h-4 w-4 text-primary" aria-hidden="true" />
-          Your decisions
+          {t("virtualPatient.yourDecisions")}
         </h2>
         <ol className="mt-4 space-y-3">
           {result.decisions.map((decision) => (
@@ -528,7 +538,11 @@ function ResultScreen({
                   {decision.order}. {decision.option_label}
                 </span>
                 <Badge variant={decision.was_correct ? "success" : "warning"}>
-                  {decision.was_correct ? "Correct" : decision.was_harmful ? "Harmful" : "Not ideal"}
+                  {decision.was_correct
+                    ? t("virtualPatient.correct")
+                    : decision.was_harmful
+                      ? t("virtualPatient.harmful")
+                      : t("virtualPatient.notIdeal")}
                 </Badge>
                 {decision.score_delta > 0 && (
                   <span className="text-xs text-muted-foreground">
@@ -548,18 +562,20 @@ function ResultScreen({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="flex items-center gap-2 font-display text-lg font-bold">
             <Sparkles className="h-4 w-4 text-primary" aria-hidden="true" />
-            AI debrief
+            {t("virtualPatient.debrief")}
           </h2>
           {/* Honest about provenance rather than implying a model wrote it. */}
           <Badge variant="muted">
-            {result.debrief_narrated ? "Written by Medly AI" : "From the case notes"}
+            {result.debrief_narrated
+              ? t("virtualPatient.debriefWritten")
+              : t("virtualPatient.debriefFromNotes")}
           </Badge>
         </div>
 
         {loading ? (
           <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-            Preparing your debrief…
+            {t("virtualPatient.debriefLoading")}
           </div>
         ) : (
           <div className="mt-4">
@@ -570,7 +586,7 @@ function ResultScreen({
         <div className="mt-5 rounded-xl border border-border bg-muted/40 p-4">
           <h3 className="flex items-center gap-2 text-sm font-semibold">
             <BookOpen className="h-4 w-4 text-primary" aria-hidden="true" />
-            The diagnosis
+            {t("virtualPatient.diagnosisHeading")}
           </h3>
           <p className="mt-1 text-sm text-muted-foreground">{result.correct_diagnosis}</p>
           {result.learning_objectives && (
@@ -588,10 +604,10 @@ function ResultScreen({
           ) : (
             <RotateCcw className="h-4 w-4" aria-hidden="true" />
           )}
-          Try this case again
+          {t("virtualPatient.askAgain")}
         </Button>
         <Link to="/virtual-patient">
-          <Button variant="outline">Back to cases</Button>
+          <Button variant="outline">{t("virtualPatient.backToCases")}</Button>
         </Link>
       </div>
 

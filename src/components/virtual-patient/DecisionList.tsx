@@ -1,4 +1,5 @@
 import { Check, Loader2, TriangleAlert } from "lucide-react";
+import { useLanguage } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import type { VpOption } from "@/lib/api";
 
@@ -32,6 +33,7 @@ export function DecisionList({
   disabled?: boolean;
   onChoose: (key: string) => void;
 }) {
+  const { t } = useLanguage();
   const locked = Boolean(busy || disabled || selectedKey);
 
   return (
@@ -104,7 +106,11 @@ export function DecisionList({
                   ) : (
                     <TriangleAlert className="h-4 w-4" aria-hidden="true" />
                   )}
-                  {verdict?.correct ? "Correct" : verdict?.harmful ? "Harmful" : "Not ideal"}
+                  {verdict?.correct
+                    ? t("virtualPatient.correct")
+                    : verdict?.harmful
+                      ? t("virtualPatient.harmful")
+                      : t("virtualPatient.notIdeal")}
                 </span>
               )}
             </button>
