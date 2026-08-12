@@ -48,7 +48,7 @@ export default function VirtualPatientRun() {
   const { sessionId = "" } = useParams();
   const id = Number(sessionId);
   const toast = useToast();
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
 
   const [session, setSession] = useState<VpSession | null>(null);
   const [bubbles, setBubbles] = useState<Bubble[]>([]);
@@ -130,6 +130,28 @@ export default function VirtualPatientRun() {
     }
   }, [id, pushStage]);
 
+  /* Reload when the language changes, so the case switches with the UI. The
+     stored translation is read; the run is never restarted and no progress is
+     lost — the server owns the stage, and it does not care what language the
+     student is reading in.
+
+     Not while feedback is on screen, though. The server advanced the stage the
+     moment the decision was submitted, so reloading mid-verdict would skip the
+     student straight past the explanation they were reading. The switch is
+     held until they press continue. */
+  const loadedLang = useRef(lang);
+  const langChangedMidVerdict = useRef(false);
+
+  useEffect(() => {
+    if (loadedLang.current === lang) return;
+    if (verdict) {
+      langChangedMidVerdict.current = true;
+      return;
+    }
+    loadedLang.current = lang;
+    void begin();
+  }, [lang, verdict, begin]);
+
   useEffect(() => {
     void begin();
   }, [begin]);
@@ -199,6 +221,15 @@ export default function VirtualPatientRun() {
   /** Move on after reading the feedback. Purely a client-side reveal. */
   function advance() {
     if (!verdict) return;
+    // A language switch held back while the feedback was up is applied now.
+    if (langChangedMidVerdict.current) {
+      langChangedMidVerdict.current = false;
+      loadedLang.current = lang;
+      setVerdict(null);
+      setSelected(null);
+      void begin();
+      return;
+    }
     pushStage(verdict.next_stage);
     setVerdict(null);
     setSelected(null);

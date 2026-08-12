@@ -8,6 +8,8 @@ import common from "./common.json";
 import communities from "./communities.json";
 import dashboard from "./dashboard.json";
 import feed from "./feed.json";
+import leaderboard from "./leaderboard.json";
+import learn from "./learn.json";
 import library from "./library.json";
 import nav from "./nav.json";
 import profile from "./profile.json";
@@ -33,6 +35,8 @@ const table: Record<string, string> = {
   ...prefix("communities", communities),
   ...prefix("dashboard", dashboard),
   ...prefix("feed", feed),
+  ...prefix("leaderboard", leaderboard),
+  ...prefix("learn", learn),
   ...prefix("library", library),
   ...prefix("nav", nav),
   ...prefix("profile", profile),

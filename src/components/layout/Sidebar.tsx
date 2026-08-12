@@ -61,7 +61,7 @@ export function Sidebar() {
         <span className="font-display text-2xl font-bold text-gradient">{site.name}</span>
       </NavLink>
 
-      <nav className="flex-1 overflow-y-auto px-3 py-2" aria-label="Main">
+      <nav className="flex-1 overflow-y-auto px-3 py-2" aria-label={t("common.mainNav")}>
         <ul className="space-y-1">
           {navItems.map((item) => (
             <Item key={item.to} {...item} />

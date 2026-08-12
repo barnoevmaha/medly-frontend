@@ -21,7 +21,7 @@ const DIFFICULTY: Record<string, { badge: string; key: string }> = {
 export default function VirtualPatient() {
   const navigate = useNavigate();
   const toast = useToast();
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const [starting, setStarting] = useState<string | null>(null);
   const [cases, setCases] = useState<VpCase[]>([]);
   const [loading, setLoading] = useState(true);
@@ -39,9 +39,13 @@ export default function VirtualPatient() {
     }
   }, []);
 
+  // `lang` is a dependency because case text is translated server-side and
+  // sent per the X-Medly-Lang header: switching language has to refetch, or
+  // the cards stay in the language they were first loaded in. Every other
+  // content page in the app already does this; Virtual Patient did not.
   useEffect(() => {
     void load();
-  }, [load]);
+  }, [load, lang]);
 
   /* The server opens the run and hands back its id; the URL then names that
      run, so a refresh resumes it. An unfinished run is resumed rather than

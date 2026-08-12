@@ -5,10 +5,12 @@ import { TranslationNote } from "./TranslationNote";
 import { AssistantWidget } from "@/components/assistant/AssistantWidget";
 import { getToken } from "@/lib/api";
 import { useSession } from "@/lib/session";
+import { useLanguage } from "@/lib/i18n";
 
 export function AppLayout() {
   const location = useLocation();
   const { me, loading } = useSession();
+  const { t } = useLanguage();
 
   // Every route inside this layout calls the API, and the API is authenticated.
   // Without this check an unauthenticated visit renders a page full of 401
@@ -24,7 +26,7 @@ export function AppLayout() {
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="flex items-center gap-3 text-muted-foreground">
           <span className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-          <span className="text-sm font-medium">Loading your workspace…</span>
+          <span className="text-sm font-medium">{t("common.loadingWorkspace")}</span>
         </div>
       </div>
     );

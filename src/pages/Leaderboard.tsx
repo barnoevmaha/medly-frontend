@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Avatar } from "@/components/ui/avatar";
 import { ErrorState, LoadingState } from "@/components/ui/states";
+import { useLanguage } from "@/lib/i18n";
 import { api, type LeaderboardRow, type Profile } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
@@ -13,6 +14,7 @@ const medalColor = ["text-warning", "text-muted-foreground", "text-accent"];
 
 /** Ranking straight from the points table — nothing here is hardcoded. */
 export default function Leaderboard() {
+  const { t } = useLanguage();
   const [rows, setRows] = useState<LeaderboardRow[]>([]);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -26,7 +28,7 @@ export default function Leaderboard() {
       setProfile(me);
       setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not load the leaderboard");
+      setError(e instanceof Error ? e.message : t("leaderboard.loadError"));
     } finally {
       setLoading(false);
     }
@@ -43,16 +45,16 @@ export default function Leaderboard() {
         className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
-        Profile
+        {t("nav.profile")}
       </Link>
 
       <PageHeader
-        title="Leaderboard"
-        subtitle="Ranked by points earned from challenges, quizzes and lessons"
+        title={t("leaderboard.title")}
+        subtitle={t("leaderboard.subtitle")}
       />
 
       {error && <ErrorState message={error} onRetry={() => void load()} />}
-      {loading && <LoadingState label="Loading rankings…" />}
+      {loading && <LoadingState label={t("leaderboard.loading")} />}
 
       {!loading && profile && (
         <Card className="mb-6 p-6 shadow-medium">

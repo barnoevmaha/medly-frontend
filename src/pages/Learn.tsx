@@ -8,9 +8,11 @@ import { Progress } from "@/components/ui/progress";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { IconTile } from "@/components/ui/icon";
 import { EmptyState, ErrorState, SkeletonCard } from "@/components/ui/states";
+import { useLanguage } from "@/lib/i18n";
 import { api, type CourseSummary } from "@/lib/api";
 
 export default function Learn() {
+  const { t } = useLanguage();
   const [courses, setCourses] = useState<CourseSummary[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -21,7 +23,7 @@ export default function Learn() {
       setCourses(await api.courses());
       setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not load courses");
+      setError(e instanceof Error ? e.message : t("learn.loadError"));
     } finally {
       setLoading(false);
     }
@@ -36,12 +38,12 @@ export default function Learn() {
   return (
     <>
       <PageHeader
-        title="AI Training"
-        subtitle="How medical AI works, where it fails, and how to use it responsibly"
+        title={t("learn.title")}
+        subtitle={t("learn.subtitle")}
         action={
           started.length > 0 && (
             <Link to={`/learn/${started[0].slug}`}>
-              <Button>Continue where you left off</Button>
+              <Button>{t("learn.resume")}</Button>
             </Link>
           )
         }
@@ -57,8 +59,8 @@ export default function Learn() {
       ) : courses.length === 0 ? (
         <EmptyState
           icon={<GraduationCap className="h-8 w-8" />}
-          title="No courses published yet"
-          body="The curriculum is seeded on first boot. Run the seed if this is a fresh database."
+          title={t("learn.noCourses")}
+          body={t("learn.noCoursesBody")}
         />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">
@@ -101,7 +103,11 @@ export default function Learn() {
 
                 <Link to={`/learn/${course.slug}`} className="mt-5">
                   <Button className="w-full" variant={done ? "outline" : "default"}>
-                    {done ? "Review" : course.progress_pct > 0 ? "Continue" : "Start"}
+                    {done
+                      ? t("learn.review")
+                      : course.progress_pct > 0
+                        ? t("common.continue")
+                        : t("learn.start")}
                     <span className="sr-only"> — {course.title}</span>
                   </Button>
                 </Link>

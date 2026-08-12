@@ -136,7 +136,7 @@ export function MobileNav() {
 
       <nav
         className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-card/95 shadow-medium backdrop-blur-lg md:hidden"
-        aria-label="Main"
+        aria-label={t("common.mainNav")}
       >
         <ul className="flex items-stretch justify-around">
           {primary.map(({ label, to, icon: Icon }) => (
@@ -165,7 +165,7 @@ export function MobileNav() {
               )}
             >
               <MoreHorizontal className="h-5 w-5" aria-hidden="true" />
-              More
+              {t("common.more")}
             </button>
           </li>
         </ul>
