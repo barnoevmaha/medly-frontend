@@ -9,32 +9,61 @@
    ============================================================= */
 
 /* ---------- Landing page ---------- */
+/* Every number below describes how the product is built, not how popular it
+   is. Student counts, university counts and star ratings were invented copy
+   for a platform that has none of them yet, and a page that opens with a
+   fabricated statistic is a strange place to argue for auditable AI. What is
+   here is checkable in the code: the screening pipeline in
+   app/services/safety.py, the four-step order enforced in
+   app/routers/analysis.py, the synthetic-only imaging engine, and the three
+   locales in src/locales/. */
 export const home = {
-  eyebrow: "The #1 Platform for Medical Students",
-  headline: ["Learn Medicine.", "Together."],
+  eyebrow: "Guardrails, audit trails, and a human on the hook",
+  headline: ["Use AI in medicine.", "Stay accountable for it."],
   subhead:
-    "Join thousands of medical students worldwide. Learn, compete, and grow with the most engaging medical education platform.",
-  primaryCta: "Start Learning Free",
-  secondaryCta: "Explore Demo",
-  trustBadges: ["Verified Students Only", "200+ Universities", "4.9 Rating"],
+    "Medly trains clinicians to work with AI the way medicine will demand: commit to your own read first, see the model second, and leave a record of who decided what.",
+  primaryCta: "Start training",
+  secondaryCta: "Explore the platform",
+  trustBadges: [
+    "Every AI answer screened and logged",
+    "No patient data, ever",
+    "Synthetic imaging, clearly labelled",
+  ],
   stats: [
-    { value: "50K+", label: "Students" },
-    { value: "200+", label: "Universities" },
-    { value: "1M+", label: "Resources" },
-    { value: "98%", label: "Satisfaction" },
+    { value: "100%", label: "AI answers audited" },
+    { value: "4 steps", label: "Enforced before the model is revealed" },
+    { value: "0", label: "Patient records used" },
+    { value: "3", label: "Languages supported" },
   ],
-  featuresTitle: "Everything You Need to Excel",
+  featuresTitle: "Why this is not a chatbot with a stethoscope",
   featuresSubtitle:
-    "From study materials to peer support, Medly provides the complete toolkit for medical education success.",
+    "Every AI feature here is wrapped in the controls a clinical setting would demand — and the platform teaches why each control exists.",
   features: [
-    { icon: "users", title: "Join Communities", body: "Connect with students from your specialty worldwide" },
-    { icon: "trophy", title: "Weekly Challenges", body: "Compete in quizzes and climb the leaderboard" },
-    { icon: "book", title: "Saved Library", body: "Keep books, videos, PDFs and articles in one place" },
-    { icon: "sparkles", title: "AI Assistant", body: "Get personalized study recommendations" },
+    {
+      icon: "shield",
+      title: "Audited AI interactions",
+      body: "Every question is screened, every answer carries its disclaimer, and both are written to an audit trail you can read.",
+    },
+    {
+      icon: "scan",
+      title: "Imaging that resists automation bias",
+      body: "You commit to your own reading before the model runs. The order is enforced by the server, not by good intentions.",
+    },
+    {
+      icon: "graduation",
+      title: "A safety curriculum, assessed",
+      body: "Courses and quizzes on automation bias, confidence thresholds and accountability — marked, not just read.",
+    },
+    {
+      icon: "stethoscope",
+      title: "Virtual patients on a deterministic engine",
+      body: "Clinical outcomes come from an authored rules engine. The model only puts them into words.",
+    },
   ],
-  ctaTitle: "Ready to Transform Your Medical Education?",
-  ctaBody: "Join over 50,000 medical students already using Medly to learn smarter, not harder.",
-  ctaButton: "Get Started for Free",
+  ctaTitle: "Learn AI the way you will have to use it",
+  ctaBody:
+    "Take a case: your reading first, the model second, and a record of both that a supervisor could audit.",
+  ctaButton: "Start training",
 } as const;
 
 /* ---------- Premium ---------- */

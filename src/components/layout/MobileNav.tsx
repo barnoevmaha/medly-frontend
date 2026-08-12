@@ -59,8 +59,14 @@ export function MobileNav() {
         />
       )}
 
+      {/* Sheet z-[70], above the assistant launcher's z-[60]. The launcher sits
+          at 96–152px from the bottom, which lands inside this sheet: at z-50 it
+          painted on top of the last row and a half, so a tap at the right-hand
+          end of "Log out" opened the assistant instead. The sheet is opaque and
+          taller than 152px in every configuration, so raising it hides the
+          launcher completely for as long as this is open. */}
       {open && (
-        <div className="fixed bottom-16 left-0 right-0 z-50 max-h-[65vh] overflow-y-auto rounded-t-2xl border-t border-border bg-card p-4 shadow-medium animate-fade-up md:hidden">
+        <div className="fixed bottom-16 left-0 right-0 z-[70] max-h-[65vh] overflow-y-auto rounded-t-2xl border-t border-border bg-card p-4 shadow-medium animate-fade-up md:hidden">
           <div className="mb-3 flex items-center justify-between gap-3">
             {me && (
               <div className="flex min-w-0 items-center gap-3">

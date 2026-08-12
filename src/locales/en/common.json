@@ -10,6 +10,7 @@
   "couldNotSave": "Could not save that",
   "daysAgo": "{n}d ago",
   "done": "done",
+  "englishFallback": "Shown in English — translation unavailable",
   "filter": "Filter",
   "freePlan": "Free",
   "hoursAgo": "{n}h ago",

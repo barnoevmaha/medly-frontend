@@ -1,6 +1,7 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
 import { MobileNav } from "./MobileNav";
+import { TranslationNote } from "./TranslationNote";
 import { AssistantWidget } from "@/components/assistant/AssistantWidget";
 import { getToken } from "@/lib/api";
 import { useSession } from "@/lib/session";
@@ -45,6 +46,7 @@ export function AppLayout() {
       <MobileNav />
       <main id="main" className="px-4 pb-24 pt-6 md:ml-64 md:px-8 md:pb-10">
         <div className="mx-auto max-w-5xl">
+          <TranslationNote />
           <Outlet />
         </div>
       </main>

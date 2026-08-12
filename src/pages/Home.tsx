@@ -1,14 +1,26 @@
 import { Link } from "react-router-dom";
 import {
   Users, Trophy, BookOpen, Sparkles, ShieldCheck, GraduationCap, Star, ChevronRight,
+  ScanLine, Stethoscope, FileLock2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { home } from "@/data/content";
 import { site } from "@/config/site";
 
-const icons = { users: Users, trophy: Trophy, book: BookOpen, sparkles: Sparkles } as const;
-const badgeIcons = [ShieldCheck, GraduationCap, Star];
+/* Icon names used by `home.features` in src/data/content.ts. The older four
+   are kept so an edit that reaches for them still renders. */
+const icons = {
+  users: Users,
+  trophy: Trophy,
+  book: BookOpen,
+  sparkles: Sparkles,
+  shield: ShieldCheck,
+  scan: ScanLine,
+  graduation: GraduationCap,
+  stethoscope: Stethoscope,
+} as const;
+const badgeIcons = [ShieldCheck, FileLock2, Star];
 
 export default function Home() {
   return (
@@ -94,7 +106,9 @@ export default function Home() {
           </div>
           <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
             {home.features.map((f) => {
-              const Icon = icons[f.icon as keyof typeof icons];
+              // A content edit naming an icon that does not exist should cost
+              // a generic glyph, not a blank white page.
+              const Icon = icons[f.icon as keyof typeof icons] ?? Sparkles;
               return (
                 <Card key={f.title} className="p-6 card-hover">
                   <div className="flex h-12 w-12 items-center justify-center rounded-xl gradient-primary shadow-glow">

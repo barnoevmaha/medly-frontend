@@ -2,6 +2,7 @@
  * Edit the JSON files in this directory instead. */
 
 import article from "./article.json";
+import auth from "./auth.json";
 import challenges from "./challenges.json";
 import common from "./common.json";
 import communities from "./communities.json";
@@ -26,6 +27,7 @@ function prefix(ns: string, entries: Record<string, string>) {
 /** Flat `namespace.key` table for one locale. */
 const table: Record<string, string> = {
   ...prefix("article", article),
+  ...prefix("auth", auth),
   ...prefix("challenges", challenges),
   ...prefix("common", common),
   ...prefix("communities", communities),

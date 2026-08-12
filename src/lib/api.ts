@@ -32,6 +32,36 @@ export class ApiError extends Error {
   }
 }
 
+/* ---------- translation completeness ----------
+ * The backend sets `X-Medly-Translation: partial` when any field in a
+ * response fell back to English (see app/services/localize.py). Kept as a
+ * tiny external store rather than React state because it is written from
+ * `request()`, which knows nothing about components; `TranslationNote` reads
+ * it through useSyncExternalStore.
+ */
+let translationPartial = false;
+const translationListeners = new Set<() => void>();
+
+function setTranslationPartial(value: boolean) {
+  if (translationPartial === value) return;
+  translationPartial = value;
+  for (const listener of translationListeners) listener();
+}
+
+/** Call on navigation: the note belongs to the page that earned it. */
+export function resetTranslationStatus() {
+  setTranslationPartial(false);
+}
+export function getTranslationStatus(): boolean {
+  return translationPartial;
+}
+export function subscribeTranslationStatus(listener: () => void): () => void {
+  translationListeners.add(listener);
+  return () => {
+    translationListeners.delete(listener);
+  };
+}
+
 /** True only on public pages, where a stale token must not trigger a redirect loop. */
 function onPublicPage(): boolean {
   return (
@@ -56,6 +86,11 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   headers.set("X-Medly-Lang", readLang());
 
   const response = await fetch(`${BASE}${path}`, { ...init, headers });
+  // Sticky within a page: one partial response is enough to warrant the note,
+  // and a later complete response should not clear it.
+  if (response.headers.get("X-Medly-Translation") === "partial") {
+    setTranslationPartial(true);
+  }
   if (response.status === 401) {
     // The token is gone, expired, or was issued for a database that has since
     // been replaced (a rotated secret or a reset volume invalidates every

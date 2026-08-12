@@ -4,14 +4,19 @@
     "become three different Uzbek words across three screens. Consulted by",
     "scripts/i18n-translate.mjs and enforced by scripts/i18n-validate.mjs.",
     "",
-    "Product nouns stay in English on purpose: 'Medly', 'Medly AI' and",
-    "'Premium' are names, and translating a name makes the UI feel machine",
-    "made. Clinical terms follow the vocabulary Uzbek and Russian medical",
-    "Product names stay in English ('Medly'), and so do clinical abbreviations that are written the same way in all three languages. 'AI' and 'Premium' ARE translated — ИИ and Премиум in Russian — so they live in `terms` with their required rendering rather than being protected from translation."
+    "Product names stay in English ('Medly'), and so do clinical",
+    "abbreviations written identically in all three languages, and 'Email',",
+    "which both target locales already leave as-is.",
+    "",
+    "'AI' and 'Premium' ARE translated — ИИ and Премиум in Russian — so they",
+    "live in `terms` with their required rendering rather than being listed",
+    "here as protected. Listing a word that should be translated is how you",
+    "end up with 'Премиум' flagged as an error."
   ],
   "doNotTranslate": [
     "Medly",
     "Medly AI",
+    "Email",
     "CURB-65",
     "SpO₂",
     "GCS",
@@ -179,10 +184,6 @@
     "Premium": {
       "ru": "Премиум",
       "uz": "Premium"
-    },
-    "Email": {
-      "ru": "Email",
-      "uz": "Email"
     }
   },
   "tone": {
