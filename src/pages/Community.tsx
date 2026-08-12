@@ -249,6 +249,7 @@ export default function Community() {
                   src={community.cover}
                   width={360}
                   height={160}
+                  fit="crop"
                   className="border-b border-border"
                 />
               </Link>

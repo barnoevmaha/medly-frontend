@@ -174,6 +174,7 @@ export default function Challenges() {
                       src={challenge.cover}
                       width={360}
                       height={160}
+                      fit="crop"
                       className="border-b border-border"
                     />
                   </Link>
