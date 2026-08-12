@@ -73,17 +73,26 @@ const LOOKS: Record<PatientExpression, Look> = {
   recovered: { skin: "#F4D2B4", blush: "#EFAC93", eye: 1, mouth: 4, brow: -4, breath: "5.2s", label: "Recovered" },
 };
 
+/** Past this, the face is drawn as an older patient. */
+const OLDER_FROM = 60;
+
 export function PatientAvatar({
   expression,
   name,
   className,
+  age,
   size = 200,
 }: {
   expression: PatientExpression;
   name?: string;
   className?: string;
+  /** Drives grey, receding hair and light age lines. A 74-year-old drawn with
+   *  the default head reads as a young adult, which undercuts a case whose
+   *  whole teaching point is that confusion in an older patient is sepsis. */
+  age?: number;
   size?: number;
 }) {
+  const older = typeof age === "number" && age >= OLDER_FROM;
   const look = LOOKS[expression];
   // A brief pulse when the condition changes, so a transition is noticed
   // without an animation running the whole time.
@@ -131,9 +140,27 @@ export function PatientAvatar({
         <ellipse cx="100" cy="72" rx="42" ry="45" fill={look.skin}
                  className="vp-tint" />
 
-        {/* hair */}
-        <path d="M58 66 C60 34 82 24 100 24 C118 24 140 34 142 66 C132 50 118 44 100 44 C82 44 68 50 58 66 Z"
-              fill="hsl(var(--muted-foreground) / 0.55)" />
+        {/* hair — receded and grey once the patient is older */}
+        {older ? (
+          <>
+            <path d="M60 64 C64 40 80 30 100 30 C120 30 136 40 140 64 C130 52 118 48 100 48 C82 48 70 52 60 64 Z"
+                  fill="hsl(var(--muted-foreground) / 0.28)" />
+            {/* temples, kept sparse so the crown reads as thinned */}
+            <path d="M58 70 C58 56 64 48 70 46 C66 54 64 62 64 72 Z"
+                  fill="hsl(var(--muted-foreground) / 0.34)" />
+            <path d="M142 70 C142 56 136 48 130 46 C134 54 136 62 136 72 Z"
+                  fill="hsl(var(--muted-foreground) / 0.34)" />
+            {/* nasolabial folds and a brow line — age, not expression */}
+            <g stroke="hsl(var(--foreground) / 0.16)" strokeWidth="2" strokeLinecap="round" fill="none">
+              <path d="M84 92 C81 99 81 104 84 108" />
+              <path d="M116 92 C119 99 119 104 116 108" />
+              <path d="M86 52 C93 49 107 49 114 52" />
+            </g>
+          </>
+        ) : (
+          <path d="M58 66 C60 34 82 24 100 24 C118 24 140 34 142 66 C132 50 118 44 100 44 C82 44 68 50 58 66 Z"
+                fill="hsl(var(--muted-foreground) / 0.55)" />
+        )}
 
         {/* cheeks */}
         <ellipse cx="74" cy="84" rx="9" ry="6" fill={look.blush} opacity="0.55"

@@ -1,4 +1,5 @@
 /* Thin typed client for the Medly API. */
+import type { PhotoAttribution } from "@/components/ui/photo-credit";
 import { readLang } from "./i18n";
 
 /**
@@ -351,6 +352,9 @@ export interface VpStage {
 export interface VpSession {
   session_id: number;
   case_slug: string;
+  patient_age: number;
+  patient_sex: string;
+  cover: string;
   status: "in_progress" | "completed" | "failed" | "abandoned";
   patient_state: PatientState;
   vitals: VpVitals;
@@ -638,6 +642,15 @@ export interface AnalysisJob {
 
 /* ---------- feed ---------- */
 
+export interface ArticleImageRefresh {
+  slug: string;
+  changed: boolean;
+  cover: string;
+  cover_orientation: "landscape" | "portrait" | "square";
+  image: PhotoAttribution | null;
+  detail: string;
+}
+
 export interface ArticleSummary {
   id: number;
   slug: string;
@@ -649,6 +662,12 @@ export interface ArticleSummary {
   read_minutes: number;
   cover: string;
   cover_alt: string;
+  /** Shape of the cover image, so the card can reserve the right box before it
+   *  loads. Stored server-side rather than measured in the browser. */
+  cover_orientation: "landscape" | "portrait" | "square";
+  /** Attribution and true pixel dimensions when the cover came from a stock
+   *  provider. Null for an authored cover. Never carries a credential. */
+  image: PhotoAttribution | null;
   published_at: string;
   like_count: number;
   comment_count: number;
@@ -1067,6 +1086,15 @@ export const api = {
     request<ArticleSummary>(`/api/feed/articles/${slug}/like`, { method: "POST" }),
 
   /* library + saved */
+  /** Staff only. Replaces the article's stored stock photo with a fresh one. */
+  regenerateArticleImage: (slug: string) =>
+    request<ArticleImageRefresh>(`/api/feed/articles/${slug}/image/regenerate`, {
+      method: "POST",
+    }),
+  /** Staff only. Drops the stock photo and restores the authored cover. */
+  dropArticleImage: (slug: string) =>
+    request<ArticleImageRefresh>(`/api/feed/articles/${slug}/image`, { method: "DELETE" }),
+
   resources: (params: { q?: string; kind?: string; level?: string; topic?: string } = {}) => {
     const query = new URLSearchParams();
     if (params.q) query.set("q", params.q);

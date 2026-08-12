@@ -394,19 +394,25 @@ export function AssistantWidget() {
         aria-label={open ? "Close Medly AI" : "Open Medly AI"}
         aria-expanded={open}
         className={cn(
-          "group fixed bottom-24 right-4 z-[60] flex h-14 w-14 items-center justify-center rounded-2xl",
-          "gradient-primary text-primary-foreground shadow-glow",
-          "transition-all duration-200 hover:scale-105 hover:shadow-xl active:scale-95",
+          // No plate behind the character — it reads as itself rather than as a
+          // glyph inside a teal button. The box keeps its corner and position so
+          // the focus ring and the hit target are unchanged in shape, and grows
+          // from 56 to 64px because the character now has to carry the button on
+          // its own.
+          "group fixed bottom-24 right-4 z-[60] flex h-16 w-16 items-center justify-center rounded-2xl",
+          "transition-transform duration-200 hover:scale-105 active:scale-95",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2",
           "md:bottom-6 md:right-6"
         )}
       >
         {open ? (
-          <X className="h-6 w-6" />
+          // The close glyph does need a plate: without one it is a dark X over
+          // whatever the page — or the mobile scrim — happens to be.
+          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-card text-foreground shadow-soft">
+            <X className="h-5 w-5" />
+          </span>
         ) : (
-          // Wider than the 24px glyph it replaces so the eyes stay legible, but
-          // the button itself is untouched: same size, corner and position.
-          <AssistantAvatar className="h-auto w-11 transition-transform duration-200 group-hover:-translate-y-0.5" />
+          <AssistantAvatar className="h-auto w-14 transition-transform duration-200 group-hover:-translate-y-0.5" />
         )}
         {!open && context && (
           <span

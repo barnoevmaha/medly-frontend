@@ -11,7 +11,8 @@ import { Progress } from "@/components/ui/progress";
 import { Markdown } from "@/components/ui/markdown";
 import { ErrorState, LoadingState } from "@/components/ui/states";
 import { useToast } from "@/components/ui/toast";
-import { PatientAvatar, expressionFor } from "@/components/virtual-patient/PatientAvatar";
+import { expressionFor } from "@/components/virtual-patient/PatientAvatar";
+import { PatientFigure } from "@/components/virtual-patient/PatientFigure";
 import { ConditionMeter } from "@/components/virtual-patient/ConditionMeter";
 import { DecisionList } from "@/components/virtual-patient/DecisionList";
 import {
@@ -294,7 +295,9 @@ export default function VirtualPatientRun() {
         {/* ------------------------------- patient panel ------------------ */}
         <aside className="space-y-4">
           <Card className="p-5 text-center">
-            <PatientAvatar
+            <PatientFigure
+              cover={session.cover}
+              age={session.patient_age}
               expression={expressionFor(session.patient_state)}
               name={session.case_slug}
               size={168}
@@ -347,7 +350,8 @@ export default function VirtualPatientRun() {
               {bubbles.map((bubble) =>
                 bubble.speaker === "patient" ? (
                   <div key={bubble.id} className="flex gap-3 vp-bubble">
-                    <PatientAvatar
+                    <PatientFigure
+                      age={session.patient_age}
                       expression={expressionFor(session.patient_state)}
                       size={40}
                       className="mt-0.5 shrink-0"
@@ -511,7 +515,7 @@ function ResultScreen({
 
       <Card className="mb-5 p-6 shadow-medium md:p-8">
         <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-start">
-          <PatientAvatar
+          <PatientFigure
             expression={expressionFor(result.patient_state)}
             size={140}
             className="shrink-0"

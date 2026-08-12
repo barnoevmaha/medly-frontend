@@ -77,8 +77,8 @@ export const premium = {
     { icon: "zap", title: "Exclusive Challenges", body: "Access premium-only challenges with bigger rewards" },
   ],
   plans: [
-    { id: "monthly", name: "Monthly", blurb: "Perfect for trying out premium features", price: "$9.99", period: "/month", cta: "Choose Plan", popular: false },
-    { id: "yearly", name: "Yearly", blurb: "Save 33% with annual billing", price: "$79.99", period: "/year", cta: "Get Started", popular: true },
+    { id: "monthly", name: "Monthly", blurb: "Perfect for trying out premium features", price: "$3.99", period: "/month", cta: "Choose Plan", popular: false },
+    { id: "yearly", name: "Yearly", blurb: "Save 16% with annual billing", price: "$39.99", period: "/year", cta: "Get Started", popular: true },
   ],
   includedTitle: "Everything Included",
   included: [

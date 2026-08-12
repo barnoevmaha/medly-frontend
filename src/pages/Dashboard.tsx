@@ -37,7 +37,6 @@ export default function Dashboard() {
     stat: StatKey;
     label: string;
     value: string;
-    detail: string;
     to: string;
   }> = useMemo(
     () => [
@@ -45,31 +44,24 @@ export default function Dashboard() {
         stat: "rank",
         label: t("dashboard.statRank"),
         value: profile ? `#${profile.rank}` : "—",
-        detail: profile ? t("dashboard.ofStudents", { n: profile.total_users }) : "",
         to: "/leaderboard",
       },
       {
         stat: "streak",
         label: t("dashboard.statStreak"),
         value: profile ? `${profile.streak_days}` : "—",
-        detail:
-          profile && profile.longest_streak > profile.streak_days
-            ? t("dashboard.best", { n: profile.longest_streak })
-            : t("dashboard.daysInRow"),
         to: "/profile",
       },
       {
         stat: "points",
         label: t("dashboard.statPoints"),
         value: profile ? profile.points.toLocaleString() : "—",
-        detail: t("dashboard.earnedFrom"),
         to: "/leaderboard",
       },
       {
         stat: "badges",
         label: t("dashboard.statBadges"),
         value: profile ? String(profile.badge_count) : "—",
-        detail: t("dashboard.viewBadges"),
         to: "/profile?tab=badges",
       },
     ],
@@ -110,7 +102,6 @@ export default function Dashboard() {
               stat={item.stat}
               label={item.label}
               value={item.value}
-              detail={item.detail}
             />
           </Link>
         ))}

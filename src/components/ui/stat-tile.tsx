@@ -77,24 +77,23 @@ export function StatIcon({ stat }: { stat: StatKey }) {
 }
 
 /**
- * Stacked card: tinted icon, then label, then the value, then a line of
- * detail. Fills its grid cell so a row of them is always the same height.
+ * Stacked card: tinted icon, then the label, then the value. Fills its grid
+ * cell so a row of them is always the same height.
  *
- * The detail line is the success colour — it is the "and here is how that is
- * going" line, and reading it green is what makes the row feel like progress
- * rather than four static readouts.
+ * There was a fourth line under the value — a green gloss such as "of 8
+ * students" or "earned from challenges & quizzes". It restated what the label
+ * already said and gave four cards a ragged bottom edge, so the card now ends
+ * on the number it exists to show.
  */
 export function StatCard({
   stat,
   value,
   label,
-  detail,
   className,
 }: {
   stat: StatKey;
   value: string;
   label?: string;
-  detail?: string;
   className?: string;
 }) {
   const { icon, label: fallbackLabel, ...accent } = STAT_STYLE[stat];
@@ -102,10 +101,9 @@ export function StatCard({
     <Card className={cn("h-full rounded-[20px] p-5 card-hover", className)}>
       <IconSquare icon={icon} accent={accent} size="sm" />
       <div className="mt-4 text-sm text-muted-foreground">{label ?? fallbackLabel}</div>
-      <div className="mt-1 font-display text-3xl font-bold leading-tight text-foreground">
+      <div className="mt-1.5 font-display text-3xl font-bold leading-none text-foreground">
         {value}
       </div>
-      {detail && <div className="mt-1 text-sm font-medium text-success">{detail}</div>}
     </Card>
   );
 }

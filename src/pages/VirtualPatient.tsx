@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { EmptyState, ErrorState, SkeletonCard } from "@/components/ui/states";
-import { PatientAvatar } from "@/components/virtual-patient/PatientAvatar";
+import { PatientFigure } from "@/components/virtual-patient/PatientFigure";
 import { useToast } from "@/components/ui/toast";
 import { useLanguage } from "@/lib/i18n";
 import { api, type VpCase } from "@/lib/api";
@@ -100,8 +100,10 @@ export default function VirtualPatient() {
                 className="flex flex-col overflow-hidden p-0 card-hover animate-fade-in"
               >
                 <div className="flex items-start gap-4 border-b border-border bg-muted/30 p-5">
-                  <PatientAvatar
+                  <PatientFigure
+                    cover={item.cover}
                     expression="stable"
+                    age={item.patient_age}
                     name={item.patient_name}
                     size={92}
                     className="-my-1 shrink-0"

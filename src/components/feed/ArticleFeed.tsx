@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { Cover } from "@/components/ui/cover";
+import { ProviderCredit } from "@/components/ui/photo-credit";
 import { EmptyState, ErrorState, SkeletonCard } from "@/components/ui/states";
 import { useLanguage } from "@/lib/i18n";
 import { api, type ArticleSummary } from "@/lib/api";
@@ -29,6 +30,36 @@ const FILTER_KEY: Record<string, string> = {
  * Used full-size on Your Feed and cut down to a preview on the Dashboard, so
  * the two can never drift into behaving differently.
  */
+/**
+ * The box a cover is given, chosen by the shape the server says it is.
+ *
+ * These are ratios, not pixel sizes: the column is a fixed 160px and the image
+ * is `h-auto`, so the numbers only decide how tall the slot is before the file
+ * arrives — which is what stops the row reflowing as covers load. The browser
+ * cannot know an image's dimensions until it has fetched it, so the shape is
+ * stored alongside the article rather than measured here.
+ */
+const COVER_BOX: Record<string, { w: number; h: number }> = {
+  landscape: { w: 360, h: 200 },
+  portrait: { w: 240, h: 320 },
+  square: { w: 280, h: 280 },
+};
+
+/**
+ * The box a cover gets, in order of how much we trust the source.
+ *
+ * A stock provider returns the photograph's true pixel dimensions, so when they
+ * are present they win outright — the slot then matches the file exactly and
+ * nothing is cropped or padded. An authored cover has no dimensions travelling
+ * with it, so it falls back to the stored orientation, and to landscape if even
+ * that is missing.
+ */
+function coverBox(article: ArticleSummary): { w: number; h: number } {
+  const { width, height } = article.image ?? {};
+  if (width && height) return { w: width, h: height };
+  return COVER_BOX[article.cover_orientation] ?? COVER_BOX.landscape;
+}
+
 export function ArticleFeed({
   compact = false,
   limit,
@@ -190,9 +221,19 @@ export function ArticleFeed({
                 to={`/feed/${article.slug}`}
                 tabIndex={-1}
                 aria-hidden="true"
-                className="hidden w-40 shrink-0 overflow-hidden rounded-xl border border-border sm:block"
+                /* self-start is the fix for the blank space under short covers:
+                   a flex child stretches to the row height by default, so the
+                   bordered box ran the full height of the text beside it while
+                   the image sat at its own. Now the box ends where the image
+                   does, whatever shape it is. */
+                className="hidden w-40 shrink-0 self-start overflow-hidden rounded-xl border border-border sm:block"
               >
-                <Cover src={article.cover} width={360} height={200} />
+                <Cover
+                  src={article.cover}
+                  alt={article.cover_alt}
+                  width={coverBox(article).w}
+                  height={coverBox(article).h}
+                />
               </Link>
               <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-3 text-sm">
@@ -289,6 +330,12 @@ export function ArticleFeed({
             />
           )}
         </div>
+      )}
+
+      {/* Pexels asks for a visible credit wherever their photos appear. Shown
+          only when one actually is. */}
+      {visible.some((a) => a.image?.provider === "pexels") && (
+        <ProviderCredit className="pt-1" />
       )}
     </>
   );
