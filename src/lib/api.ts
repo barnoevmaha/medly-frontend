@@ -252,6 +252,129 @@ async function streamChat(
   }
 }
 
+/* ---------- virtual patient ---------- */
+
+/** The condition the engine reports. Authored server-side; never computed here. */
+export type PatientState =
+  | "stable"
+  | "improving"
+  | "deteriorating"
+  | "critical"
+  | "recovered"
+  | "failed";
+
+export type VpVitals = Partial<{
+  hr: number;
+  bp: string;
+  rr: number;
+  spo2: number;
+  temp: number;
+  gcs: number;
+}> &
+  Record<string, unknown>;
+
+export interface VpCase {
+  slug: string;
+  title: string;
+  summary: string;
+  specialty: string;
+  difficulty: string;
+  estimated_minutes: number;
+  icon: string;
+  cover: string;
+  patient_name: string;
+  patient_age: number;
+  patient_sex: string;
+  presenting_complaint: string;
+  stage_count: number;
+  max_score: number;
+  active_session_id: number | null;
+  completed: boolean;
+}
+
+export interface VpOption {
+  key: string;
+  label: string;
+  detail: string;
+}
+
+export interface VpStage {
+  key: string;
+  kind: string;
+  title: string;
+  narrative: string;
+  patient_line: string;
+  clinical_note: string;
+  prompt: string;
+  is_terminal: boolean;
+  outcome: string;
+  options: VpOption[];
+  /** True when the patient's line was phrased by the model. */
+  narrated: boolean;
+}
+
+export interface VpSession {
+  session_id: number;
+  case_slug: string;
+  status: "in_progress" | "completed" | "failed" | "abandoned";
+  patient_state: PatientState;
+  vitals: VpVitals;
+  score: number;
+  max_score: number;
+  decisions_made: number;
+  passed: boolean;
+  outcome: string;
+  stage: VpStage;
+  disclaimer: string;
+  started_at: string;
+  completed_at: string | null;
+}
+
+export interface VpDecisionResult {
+  was_correct: boolean;
+  was_harmful: boolean;
+  score_delta: number;
+  feedback: string;
+  patient_state_before: PatientState;
+  patient_state_after: PatientState;
+  vitals: VpVitals;
+  score: number;
+  max_score: number;
+  finished: boolean;
+  outcome: string;
+  next_stage: VpStage;
+  disclaimer: string;
+}
+
+export interface VpDecisionRecord {
+  order: number;
+  stage_key: string;
+  option_label: string;
+  was_correct: boolean;
+  was_harmful: boolean;
+  score_delta: number;
+  feedback: string;
+}
+
+export interface VpResult {
+  session_id: number;
+  case_slug: string;
+  case_title: string;
+  status: string;
+  outcome: string;
+  passed: boolean;
+  score: number;
+  max_score: number;
+  patient_state: PatientState;
+  correct_diagnosis: string;
+  learning_objectives: string;
+  debrief: string;
+  /** False when Gemini was unavailable and the authored debrief was used. */
+  debrief_narrated: boolean;
+  decisions: VpDecisionRecord[];
+  disclaimer: string;
+}
+
 /* ---------- types ---------- */
 
 export type Role = "student" | "instructor" | "admin";
@@ -826,6 +949,22 @@ export const api = {
   },
   chatStream: streamChat,
   suggestions: () => request<string[]>("/api/assistant/suggestions"),
+
+  /* virtual patient */
+  vpCases: () => request<VpCase[]>("/api/virtual-patient/cases"),
+  vpCase: (slug: string) => request<VpCase>(`/api/virtual-patient/cases/${slug}`),
+  vpStart: (slug: string) =>
+    request<VpSession>(`/api/virtual-patient/cases/${slug}/start`, { method: "POST" }),
+  vpSession: (id: number) => request<VpSession>(`/api/virtual-patient/sessions/${id}`),
+  vpDecide: (id: number, stage_key: string, option_key: string) =>
+    request<VpDecisionResult>(`/api/virtual-patient/sessions/${id}/decision`, {
+      method: "POST",
+      body: JSON.stringify({ stage_key, option_key }),
+    }),
+  vpAbandon: (id: number) =>
+    request<VpSession>(`/api/virtual-patient/sessions/${id}/abandon`, { method: "POST" }),
+  vpResult: (id: number) =>
+    request<VpResult>(`/api/virtual-patient/sessions/${id}/result`),
 
   audit: (params: Record<string, string | number | boolean> = {}) => {
     const query = new URLSearchParams(

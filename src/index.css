@@ -190,3 +190,77 @@
   animation: medly-caret 1s steps(1, end) infinite;
 }
 .reduce-motion .stream-caret { animation: none; opacity: 1; }
+
+/* Virtual Patient. Additions only — nothing above is modified. Every rule
+   below is disabled by the existing .reduce-motion preference, so a student
+   who has asked for stillness gets a static illustration. */
+
+/* The figure breathes. Rate comes from --vp-breath, which the avatar sets per
+   condition, so "working hard to breathe" is legible before you read a word. */
+@keyframes vp-breathe {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50%      { transform: translateY(-1.5px) scale(1.012); }
+}
+.vp-breathe {
+  animation: vp-breathe var(--vp-breath, 4.4s) ease-in-out infinite;
+  transform-origin: 50% 90%;
+}
+
+/* A single pulse when the condition changes, rather than a permanent effect. */
+@keyframes vp-state-change {
+  0%   { filter: brightness(1); transform: scale(1); }
+  35%  { filter: brightness(1.06); transform: scale(1.035); }
+  100% { filter: brightness(1); transform: scale(1); }
+}
+.vp-state-change { animation: vp-state-change 0.9s ease-out; }
+
+/* New dialogue rises into place. */
+@keyframes vp-bubble {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.vp-bubble { animation: vp-bubble 0.32s ease-out both; }
+
+/* Decision feedback: a brief settle for a good call, a brief shake for one
+   that hurt the patient. Both are short and neither is celebratory. */
+@keyframes vp-correct {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.012); }
+  100% { transform: scale(1); }
+}
+@keyframes vp-incorrect {
+  0%, 100% { transform: translateX(0); }
+  25%      { transform: translateX(-3px); }
+  75%      { transform: translateX(3px); }
+}
+.vp-correct   { animation: vp-correct 0.45s ease-out; }
+.vp-incorrect { animation: vp-incorrect 0.32s ease-in-out; }
+
+.reduce-motion .vp-breathe,
+.reduce-motion .vp-state-change,
+.reduce-motion .vp-bubble,
+.reduce-motion .vp-correct,
+.reduce-motion .vp-incorrect { animation: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .vp-breathe, .vp-state-change, .vp-bubble,
+  .vp-correct, .vp-incorrect { animation: none; }
+}
+
+/* A vital that just moved holds a brief tint, so a change is noticed without
+   the student having memorised the previous screen. */
+@keyframes vp-vital-changed {
+  0%   { background-color: hsl(var(--primary) / 0.16); }
+  100% { background-color: transparent; }
+}
+.vp-vital-changed { animation: vp-vital-changed 2.2s ease-out; }
+.reduce-motion .vp-vital-changed { animation: none; }
+@media (prefers-reduced-motion: reduce) { .vp-vital-changed { animation: none; } }
+
+/* Skin tone, brow angle and mouth curve ease between conditions, so a patient
+   drifting from stable to critical looks like a drift and not a jump cut. */
+.vp-tint {
+  transition: fill 700ms ease, stroke 700ms ease, transform 700ms ease, d 700ms ease;
+}
+.reduce-motion .vp-tint { transition: none; }
+@media (prefers-reduced-motion: reduce) { .vp-tint { transition: none; } }

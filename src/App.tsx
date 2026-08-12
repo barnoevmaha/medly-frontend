@@ -15,6 +15,8 @@ import ChallengeRun from "@/pages/ChallengeRun";
 import Library from "@/pages/Library";
 import Watch from "@/pages/Watch";
 import Read from "@/pages/Read";
+import VirtualPatient from "@/pages/VirtualPatient";
+import VirtualPatientRun from "@/pages/VirtualPatientRun";
 import Settings from "@/pages/Settings";
 import Leaderboard from "@/pages/Leaderboard";
 import Premium from "@/pages/Premium";
@@ -55,6 +57,13 @@ export default function App() {
               <Route
                 path="/saved"
                 element={<Navigate to="/library?tab=saved" replace />}
+              />
+              {/* Virtual Patient. The session id in the URL is the server's
+                  run, so a refresh resumes exactly where the engine says. */}
+              <Route path="/virtual-patient" element={<VirtualPatient />} />
+              <Route
+                path="/virtual-patient/session/:sessionId"
+                element={<VirtualPatientRun />}
               />
               <Route path="/settings" element={<Settings />} />
               <Route path="/leaderboard" element={<Leaderboard />} />
