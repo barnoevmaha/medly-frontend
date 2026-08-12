@@ -1,13 +1,14 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import {
-  Check, Eye, Globe, KeyRound, Loader2, LogOut, Monitor, Moon,
+  Camera, Check, Eye, Globe, KeyRound, Loader2, LogOut, Monitor, Moon,
   Palette, Sun, Trash2, User as UserIcon,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Avatar } from "@/components/ui/avatar";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { useToast } from "@/components/ui/toast";
 import { LoadingState } from "@/components/ui/states";
@@ -20,7 +21,21 @@ import {
   type Theme,
 } from "@/lib/preferences";
 import { api } from "@/lib/api";
+import {
+  AVATAR_MIME_TYPES,
+  ImageError,
+  resizeImageToDataUrl,
+  type ImageProblem,
+} from "@/lib/image";
 import { cn } from "@/lib/utils";
+
+/** Which message a rejected file earns. */
+const IMAGE_PROBLEM_KEY: Record<ImageProblem, string> = {
+  type: "settings.avatarInvalidType",
+  size: "settings.avatarTooLarge",
+  decode: "settings.avatarUnreadable",
+  encode: "settings.avatarUnreadable",
+};
 
 function Toggle({
   label,
@@ -98,6 +113,13 @@ export default function Settings() {
   const [busyPrivacy, setBusyPrivacy] = useState(false);
   const [clearing, setClearing] = useState(false);
 
+  const fileInput = useRef<HTMLInputElement>(null);
+  const [savingAvatar, setSavingAvatar] = useState(false);
+  /* Shown instead of `me.avatar_url` while the request is in flight, so the
+     new picture appears the moment it is chosen. Cleared on success (the
+     session now holds it) and on failure (it was never real). */
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+
   useEffect(() => {
     if (!me) return;
     setAccount({
@@ -128,6 +150,58 @@ export default function Settings() {
       toast(e instanceof Error ? e.message : t("settings.accountSaveError"), "error");
     } finally {
       setSavingAccount(false);
+    }
+  }
+
+  async function chooseAvatar(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    // Reset immediately, or picking the same file twice fires no change event.
+    event.target.value = "";
+    if (!file) return;
+
+    let dataUrl: string;
+    try {
+      // Type, size and the resize all happen before any network call: being
+      // told by the server that a 9 MB HEIC is not a PNG is a slow way to
+      // learn something the browser already knew.
+      dataUrl = await resizeImageToDataUrl(file);
+    } catch (e) {
+      toast(
+        t(e instanceof ImageError ? IMAGE_PROBLEM_KEY[e.problem] : "settings.avatarUnreadable"),
+        "error"
+      );
+      return;
+    }
+
+    setAvatarPreview(dataUrl);
+    setSavingAvatar(true);
+    try {
+      await api.updateMe({ avatar_url: dataUrl });
+      // Every avatar in the app reads `me.avatar_url` through the session, so
+      // one refresh updates the sidebar, the mobile sheet and the profile
+      // page at once — no reload, no per-component wiring.
+      await refresh();
+      toast(t("settings.avatarUpdated"));
+    } catch (e) {
+      toast(e instanceof Error ? e.message : t("settings.avatarUpdateError"), "error");
+    } finally {
+      // Either the session now has it, or it was rejected. Both mean the
+      // optimistic copy has served its purpose.
+      setAvatarPreview(null);
+      setSavingAvatar(false);
+    }
+  }
+
+  async function removeAvatar() {
+    setSavingAvatar(true);
+    try {
+      await api.updateMe({ avatar_url: "" });
+      await refresh();
+      toast(t("settings.avatarRemoved"));
+    } catch (e) {
+      toast(e instanceof Error ? e.message : t("settings.avatarUpdateError"), "error");
+    } finally {
+      setSavingAvatar(false);
     }
   }
 
@@ -200,6 +274,81 @@ export default function Settings() {
     panelDescription = t("settings.accountDesc");
     panelBody = (
       <form onSubmit={saveAccount} className="space-y-3">
+        {/* ---------------- profile picture ---------------- */}
+        <div className="flex items-center gap-4 pb-2">
+          <button
+            type="button"
+            onClick={() => fileInput.current?.click()}
+            disabled={savingAvatar}
+            aria-label={t("settings.changePhoto")}
+            className="group relative shrink-0 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:opacity-60"
+          >
+            <Avatar
+              src={avatarPreview || me.avatar_url || undefined}
+              name={me.full_name}
+              className="h-20 w-20 text-xl"
+            />
+            {/* Hover reveals the affordance on a pointer; the button beside it
+                is what a touch or keyboard user aims at. */}
+            <span
+              className={cn(
+                "absolute inset-0 flex items-center justify-center rounded-2xl bg-black/45 text-primary-foreground transition-opacity",
+                savingAvatar ? "opacity-100" : "opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100"
+              )}
+              aria-hidden="true"
+            >
+              {savingAvatar ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <Camera className="h-5 w-5" />
+              )}
+            </span>
+          </button>
+
+          <div className="min-w-0">
+            <div className="text-sm font-medium">{t("settings.profilePicture")}</div>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {t("settings.profilePictureHint")}
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={savingAvatar}
+                onClick={() => fileInput.current?.click()}
+              >
+                {savingAvatar ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Camera className="h-4 w-4" />
+                )}
+                {t("settings.changePhoto")}
+              </Button>
+              {me.avatar_url && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  disabled={savingAvatar}
+                  onClick={() => void removeAvatar()}
+                >
+                  <Trash2 className="h-4 w-4" />
+                  {t("settings.removePhoto")}
+                </Button>
+              )}
+            </div>
+          </div>
+
+          <input
+            ref={fileInput}
+            type="file"
+            accept={AVATAR_MIME_TYPES.join(",")}
+            className="hidden"
+            onChange={(event) => void chooseAvatar(event)}
+          />
+        </div>
+
         <label className="block">
           <span className="text-sm font-medium">{t("settings.fullName")}</span>
           <Input
