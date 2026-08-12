@@ -222,9 +222,13 @@ export default function Challenges() {
                     </div>
                   )}
 
+                  {/* mt-auto alone pins the button to the card floor, which on a
+                      short card leaves it touching the participants row. The
+                      wrapper keeps that alignment and guarantees a gap. */}
+                  <div className="mt-auto pt-5">
                   <Button
                     variant="outline"
-                    className="mt-auto w-full border-primary text-primary hover:bg-primary/5"
+                    className="w-full border-primary text-primary hover:bg-primary/5"
                     disabled={busy === challenge.slug}
                     onClick={() => void open(challenge)}
                   >
@@ -240,6 +244,7 @@ export default function Challenges() {
                       </>
                     )}
                   </Button>
+                  </div>
                 </div>
               </Card>
             );

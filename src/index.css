@@ -264,3 +264,19 @@
 }
 .reduce-motion .vp-tint { transition: none; }
 @media (prefers-reduced-motion: reduce) { .vp-tint { transition: none; } }
+
+/* Medly AI — the EVE launcher. Only the blink and the expression swap live
+   here; the eyes' cursor tracking is JavaScript and guards itself. The long,
+   mostly-idle cycle is deliberate: a launcher that blinks often reads as a
+   distraction rather than a character. */
+@keyframes eve-blink {
+  0%, 90%, 100% { transform: scaleY(1); }
+  94%, 96%      { transform: scaleY(0.1); }
+}
+.eve-eye {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: eve-blink 7s ease-in-out infinite;
+}
+.reduce-motion .eve-eye { animation: none; }
+@media (prefers-reduced-motion: reduce) { .eve-eye { animation: none; } }

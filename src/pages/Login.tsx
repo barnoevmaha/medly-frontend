@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { BrandMark } from "@/components/ui/brand-mark";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api";
@@ -108,9 +109,7 @@ export default function Login() {
     <div className="flex min-h-screen items-center justify-center gradient-hero px-4 py-10">
       <Card className="w-full max-w-sm p-7 shadow-medium">
         <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl gradient-primary shadow-glow">
-            <span className="text-xl font-bold text-primary-foreground">{site.initial}</span>
-          </div>
+          <BrandMark className="h-11 w-11" />
           <span className="font-display text-2xl font-bold text-gradient">{site.name}</span>
         </div>
 

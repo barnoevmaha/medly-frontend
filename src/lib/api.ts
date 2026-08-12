@@ -687,6 +687,9 @@ export interface LibraryResource {
   premium: boolean;
   url: string;
   video_url: string;
+  /** Videos only. How the source was shot, so the player and the library card
+   *  can frame it at its own proportions. */
+  orientation: "landscape" | "portrait";
   pdf_url: string;
   cover_hue: number;
   cover: string;

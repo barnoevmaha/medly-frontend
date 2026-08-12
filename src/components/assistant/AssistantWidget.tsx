@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  Bot, Check, Copy, FileText, Info, RotateCcw, Send, ShieldAlert,
+  Check, Copy, FileText, Info, RotateCcw, Send, ShieldAlert,
   Sparkles, Square, X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Markdown } from "@/components/ui/markdown";
 import { StreamingAnswer } from "@/components/assistant/StreamingAnswer";
-import { AssistantEyes } from "@/components/assistant/AssistantEyes";
+import { AssistantAvatar } from "@/components/assistant/AssistantAvatar";
 import { useAiContext } from "@/lib/ai-context";
 import { readPreferences } from "@/lib/preferences";
 import { api, ApiError, traceStream, type QuickAction, type RiskLevel } from "@/lib/api";
@@ -404,12 +404,9 @@ export function AssistantWidget() {
         {open ? (
           <X className="h-6 w-6" />
         ) : (
-          // The wrapper only establishes a positioning context for the pupils;
-          // it is the same 24px box the icon already occupied.
-          <span className="relative block h-6 w-6 transition-transform duration-200 group-hover:-rotate-6">
-            <Bot className="h-6 w-6" />
-            <AssistantEyes />
-          </span>
+          // Wider than the 24px glyph it replaces so the eyes stay legible, but
+          // the button itself is untouched: same size, corner and position.
+          <AssistantAvatar className="h-auto w-11 transition-transform duration-200 group-hover:-translate-y-0.5" />
         )}
         {!open && context && (
           <span
@@ -448,7 +445,7 @@ export function AssistantWidget() {
       >
         <header className="flex items-center gap-3 border-b border-border px-4 py-3">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl gradient-primary">
-            <Bot className="h-5 w-5 text-primary-foreground" />
+            <AssistantAvatar className="h-auto w-7" />
           </div>
           <div className="min-w-0 flex-1">
             <div className="font-display text-sm font-bold">Medly AI</div>

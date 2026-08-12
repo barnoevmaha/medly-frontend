@@ -95,6 +95,11 @@ export default function Watch() {
     );
   }
 
+  // A 9:16 clip in a 16:9 box is two black pillars around a postage stamp, so
+  // vertical sources get a vertical frame. The height cap is what stops a tall
+  // video pushing the title and the save button off the first screen.
+  const portrait = resource.orientation === "portrait";
+
   return (
     <>
       <Link
@@ -106,7 +111,14 @@ export default function Watch() {
       </Link>
 
       <Card className="overflow-hidden p-0 shadow-medium">
-        <div className="aspect-video w-full bg-black">
+        <div
+          className={cn(
+            "bg-black",
+            portrait
+              ? "mx-auto aspect-[9/16] h-[min(70vh,32rem)] max-w-full"
+              : "aspect-video w-full"
+          )}
+        >
           <iframe
             src={toEmbed(resource.video_url)}
             title={resource.title}

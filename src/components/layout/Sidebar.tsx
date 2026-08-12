@@ -1,6 +1,7 @@
 import { NavLink } from "react-router-dom";
 import { LogOut, Settings } from "lucide-react";
 import { navItems, site, staffNavItems, type NavItem } from "@/config/site";
+import { BrandMark } from "@/components/ui/brand-mark";
 import { PremiumButton } from "@/components/ui/premium-button";
 import { useSession } from "@/lib/session";
 import { useLanguage } from "@/lib/i18n";
@@ -55,9 +56,7 @@ export function Sidebar() {
   return (
     <aside className="fixed left-0 top-0 z-50 hidden h-screen w-64 flex-col border-r border-border bg-card md:flex">
       <NavLink to="/dashboard" className="flex items-center gap-3 px-6 py-6">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl gradient-primary">
-          <span className="text-xl font-bold text-primary-foreground">{site.initial}</span>
-        </div>
+        <BrandMark className="h-10 w-10" />
         <span className="font-display text-2xl font-bold text-gradient">{site.name}</span>
       </NavLink>
 

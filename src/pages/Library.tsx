@@ -23,6 +23,20 @@ import { cn } from "@/lib/utils";
 
 type TabKey = "video" | "book" | "saved";
 
+/**
+ * The shape a card's thumbnail takes. A book keeps the 3:4 of a printed cover;
+ * a video takes the proportions it was shot in, so a landscape lecture and a
+ * vertical clip are not both squeezed into the same box. Intrinsic width and
+ * height go to <Cover> as well as the class, which is what keeps the row from
+ * reflowing while the image loads.
+ */
+function thumbOf(resource: LibraryResource) {
+  if (resource.kind !== "video") return { w: 180, h: 240, cls: "w-24" };
+  return resource.orientation === "portrait"
+    ? { w: 180, h: 320, cls: "w-20 sm:w-24" }
+    : { w: 320, h: 180, cls: "w-36 sm:w-40" };
+}
+
 /** Videos open the player, everything else opens the reader. */
 function openPath(resource: { kind: string; slug: string }) {
   return resource.kind === "video" ? `/watch/${resource.slug}` : `/read/${resource.slug}`;
@@ -476,14 +490,19 @@ export default function Library() {
         />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">
-          {visibleResources.map((resource) => (
+          {visibleResources.map((resource) => {
+            const thumb = thumbOf(resource);
+            return (
             <Card key={resource.id} className="flex gap-4 p-4 card-hover animate-fade-in">
               <Link
                 to={openPath(resource)}
                 aria-label={`${CTA[resource.kind] ?? t("common.open")} ${resource.title}`}
-                className="relative w-24 shrink-0 overflow-hidden rounded-lg border border-border"
+                className={cn(
+                  "relative shrink-0 self-start overflow-hidden rounded-lg border border-border",
+                  thumb.cls
+                )}
               >
-                <Cover src={resource.cover} width={180} height={240} />
+                <Cover src={resource.cover} width={thumb.w} height={thumb.h} />
                 {resource.kind === "video" && (
                   <span className="absolute inset-0 flex items-center justify-center bg-black/25 transition-colors hover:bg-black/35">
                     <Play className="h-6 w-6 fill-white text-white" aria-hidden="true" />
@@ -549,7 +568,8 @@ export default function Library() {
                 </div>
               </div>
             </Card>
-          ))}
+            );
+          })}
         </div>
       )}
     </>
