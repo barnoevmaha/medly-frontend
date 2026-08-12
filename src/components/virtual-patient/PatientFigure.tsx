@@ -19,6 +19,7 @@ export function PatientFigure({
   cover,
   expression,
   age,
+  sex,
   name,
   size = 200,
   className,
@@ -27,6 +28,8 @@ export function PatientFigure({
   cover?: string;
   expression: PatientExpression;
   age?: number;
+  /** Passed to the drawn avatar so the figure matches the case demographic. */
+  sex?: string;
   name?: string;
   size?: number;
   className?: string;
@@ -73,6 +76,7 @@ export function PatientFigure({
       <PatientAvatar
         expression={expression}
         age={age}
+        sex={sex}
         name={name}
         size={size}
         className={className}

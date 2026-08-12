@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { EmptyState, ErrorState, SkeletonCard } from "@/components/ui/states";
 import { PatientFigure } from "@/components/virtual-patient/PatientFigure";
+import { expressionFor } from "@/components/virtual-patient/PatientAvatar";
 import { useToast } from "@/components/ui/toast";
 import { useLanguage } from "@/lib/i18n";
 import { api, type VpCase } from "@/lib/api";
@@ -102,8 +103,18 @@ export default function VirtualPatient() {
                 <div className="flex items-start gap-4 border-b border-border bg-muted/30 p-5">
                   <PatientFigure
                     cover={item.cover}
-                    expression="stable"
+                    // The card shows the patient as this student left them: mid-run
+                    // it is the live condition, a finished case reads as recovered,
+                    // and an untouched case is simply settled.
+                    expression={
+                      item.active_patient_state
+                        ? expressionFor(item.active_patient_state)
+                        : item.completed
+                          ? "recovered"
+                          : "stable"
+                    }
                     age={item.patient_age}
+                    sex={item.patient_sex}
                     name={item.patient_name}
                     size={92}
                     className="-my-1 shrink-0"

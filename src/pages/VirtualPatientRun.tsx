@@ -298,8 +298,9 @@ export default function VirtualPatientRun() {
             <PatientFigure
               cover={session.cover}
               age={session.patient_age}
+              sex={session.patient_sex}
               expression={expressionFor(session.patient_state)}
-              name={session.case_slug}
+              name={session.patient_name}
               size={168}
               className="mx-auto"
             />
@@ -352,6 +353,7 @@ export default function VirtualPatientRun() {
                   <div key={bubble.id} className="flex gap-3 vp-bubble">
                     <PatientFigure
                       age={session.patient_age}
+                      sex={session.patient_sex}
                       expression={expressionFor(session.patient_state)}
                       size={40}
                       className="mt-0.5 shrink-0"
@@ -517,6 +519,9 @@ function ResultScreen({
         <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-start">
           <PatientFigure
             expression={expressionFor(result.patient_state)}
+            age={result.patient_age}
+            sex={result.patient_sex}
+            name={result.patient_name}
             size={140}
             className="shrink-0"
           />

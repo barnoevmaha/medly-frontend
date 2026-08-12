@@ -75,12 +75,15 @@ const LOOKS: Record<PatientExpression, Look> = {
 
 /** Past this, the face is drawn as an older patient. */
 const OLDER_FROM = 60;
+/** Under this, the patient is drawn as a child. */
+const CHILD_UNDER = 13;
 
 export function PatientAvatar({
   expression,
   name,
   className,
   age,
+  sex,
   size = 200,
 }: {
   expression: PatientExpression;
@@ -90,9 +93,24 @@ export function PatientAvatar({
    *  the default head reads as a young adult, which undercuts a case whose
    *  whole teaching point is that confusion in an older patient is sepsis. */
   age?: number;
+  /** "male" / "female" as authored on the case. Together with `age` this is
+   *  what makes the figure the patient in the scenario rather than a generic
+   *  one — a paediatric case illustrated by an adult reads as the wrong case. */
+  sex?: string;
   size?: number;
 }) {
   const older = typeof age === "number" && age >= OLDER_FROM;
+  const child = typeof age === "number" && age > 0 && age < CHILD_UNDER;
+  const female = /^f/i.test(sex ?? "");
+
+  /* Spoken description of who this is, so the alt text names the patient the
+     case describes and not just how they are doing. */
+  const who = [
+    child ? "child" : older ? "older" : "adult",
+    female ? (child ? "girl" : "woman") : sex ? (child ? "boy" : "man") : "patient",
+  ]
+    .filter(Boolean)
+    .join(" ");
   const look = LOOKS[expression];
   // A brief pulse when the condition changes, so a transition is noticed
   // without an animation running the whole time.
@@ -115,7 +133,7 @@ export function PatientAvatar({
       // Read out as a status so a screen reader hears the condition change
       // rather than only seeing a face redraw.
       role="img"
-      aria-label={`${name ? `${name}: ` : ""}${look.label}`}
+      aria-label={`${name ? `${name}, ` : ""}${who}: ${look.label}`}
     >
       <svg
         viewBox="0 0 200 210"
@@ -140,16 +158,27 @@ export function PatientAvatar({
         <ellipse cx="100" cy="72" rx="42" ry="45" fill={look.skin}
                  className="vp-tint" />
 
-        {/* hair — receded and grey once the patient is older */}
+        {/* Hair. Age decides grey and recession, sex decides length — between
+            them the four seeded patients (74 M, 34 F, 9 F, 4 M) are told apart
+            at a glance without redrawing the face for each one. */}
         {older ? (
           <>
-            <path d="M60 64 C64 40 80 30 100 30 C120 30 136 40 140 64 C130 52 118 48 100 48 C82 48 70 52 60 64 Z"
-                  fill="hsl(var(--muted-foreground) / 0.28)" />
-            {/* temples, kept sparse so the crown reads as thinned */}
-            <path d="M58 70 C58 56 64 48 70 46 C66 54 64 62 64 72 Z"
-                  fill="hsl(var(--muted-foreground) / 0.34)" />
-            <path d="M142 70 C142 56 136 48 130 46 C134 54 136 62 136 72 Z"
-                  fill="hsl(var(--muted-foreground) / 0.34)" />
+            {female ? (
+              /* An older woman keeps a full, set crown — male-pattern
+                 recession on every older patient would be simply wrong. */
+              <path d="M56 72 C56 36 80 26 100 26 C120 26 144 36 144 72 C140 56 126 46 100 46 C74 46 60 56 56 72 Z"
+                    fill="hsl(var(--muted-foreground) / 0.30)" />
+            ) : (
+              <>
+                <path d="M60 64 C64 40 80 30 100 30 C120 30 136 40 140 64 C130 52 118 48 100 48 C82 48 70 52 60 64 Z"
+                      fill="hsl(var(--muted-foreground) / 0.28)" />
+                {/* temples, kept sparse so the crown reads as thinned */}
+                <path d="M58 70 C58 56 64 48 70 46 C66 54 64 62 64 72 Z"
+                      fill="hsl(var(--muted-foreground) / 0.34)" />
+                <path d="M142 70 C142 56 136 48 130 46 C134 54 136 62 136 72 Z"
+                      fill="hsl(var(--muted-foreground) / 0.34)" />
+              </>
+            )}
             {/* nasolabial folds and a brow line — age, not expression */}
             <g stroke="hsl(var(--foreground) / 0.16)" strokeWidth="2" strokeLinecap="round" fill="none">
               <path d="M84 92 C81 99 81 104 84 108" />
@@ -158,8 +187,24 @@ export function PatientAvatar({
             </g>
           </>
         ) : (
-          <path d="M58 66 C60 34 82 24 100 24 C118 24 140 34 142 66 C132 50 118 44 100 44 C82 44 68 50 58 66 Z"
-                fill="hsl(var(--muted-foreground) / 0.55)" />
+          <>
+            {/* hair down the sides of the face for a female patient */}
+            {female && (
+              <>
+                <path d="M56 62 C56 96 60 112 66 120 C58 108 58 86 60 68 Z"
+                      fill="hsl(var(--muted-foreground) / 0.5)" />
+                <path d="M144 62 C144 96 140 112 134 120 C142 108 142 86 140 68 Z"
+                      fill="hsl(var(--muted-foreground) / 0.5)" />
+              </>
+            )}
+            <path d="M58 66 C60 34 82 24 100 24 C118 24 140 34 142 66 C132 50 118 44 100 44 C82 44 68 50 58 66 Z"
+                  fill="hsl(var(--muted-foreground) / 0.55)" />
+            {/* a soft fringe, so a small child does not read as a small adult */}
+            {child && (
+              <path d="M62 58 C74 44 90 40 100 40 C112 40 128 45 138 58 C126 50 114 48 100 50 C86 52 74 52 62 58 Z"
+                    fill="hsl(var(--muted-foreground) / 0.62)" />
+            )}
+          </>
         )}
 
         {/* cheeks */}

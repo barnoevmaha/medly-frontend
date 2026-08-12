@@ -326,6 +326,9 @@ export interface VpCase {
   max_score: number;
   active_session_id: number | null;
   completed: boolean;
+  /** Condition of the patient in the caller's in-progress run. Empty string
+   *  when there is no run, so the card can draw a settled patient instead. */
+  active_patient_state: PatientState | "";
 }
 
 export interface VpOption {
@@ -352,6 +355,7 @@ export interface VpStage {
 export interface VpSession {
   session_id: number;
   case_slug: string;
+  patient_name: string;
   patient_age: number;
   patient_sex: string;
   cover: string;
@@ -399,6 +403,9 @@ export interface VpResult {
   session_id: number;
   case_slug: string;
   case_title: string;
+  patient_name: string;
+  patient_age: number;
+  patient_sex: string;
   status: string;
   outcome: string;
   passed: boolean;
