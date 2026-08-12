@@ -92,9 +92,6 @@ export default function Dashboard() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link to="/virtual-patient">
-            <Button variant="outline">Virtual Patient</Button>
-          </Link>
           <Link to="/learn">
             <Button variant="outline">{t("dashboard.aiTraining")}</Button>
           </Link>

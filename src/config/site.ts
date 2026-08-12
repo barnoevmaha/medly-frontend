@@ -5,6 +5,7 @@
 
 import {
   House, Users, Trophy, BookOpen, User, GraduationCap, ShieldCheck, Scan,
+  Stethoscope,
   type LucideIcon,
 } from "lucide-react";
 
@@ -30,6 +31,7 @@ export const navItems: NavItem[] = [
   { label: "Dashboard", to: "/dashboard", icon: House },
   { label: "Communities", to: "/community", icon: Users },
   { label: "Challenges", to: "/challenges", icon: Trophy },
+  { label: "Virtual Patient", to: "/virtual-patient", icon: Stethoscope },
   { label: "Library", to: "/library", icon: BookOpen },
   { label: "Profile", to: "/profile", icon: User },
 ];

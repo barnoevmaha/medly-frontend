@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { LogOut, MoreHorizontal, Settings, User, X } from "lucide-react";
+import { LogOut, MoreHorizontal, Settings, X } from "lucide-react";
 import { MOBILE_PRIMARY, navItems, staffNavItems } from "@/config/site";
 import { Avatar } from "@/components/ui/avatar";
 import { PremiumButton } from "@/components/ui/premium-button";
@@ -11,6 +11,8 @@ import { cn } from "@/lib/utils";
 const primary = MOBILE_PRIMARY.map((to) => navItems.find((item) => item.to === to)!).filter(
   Boolean
 );
+/** Nav entries that do not fit the bottom bar; they live behind "More". */
+const secondary = navItems.filter((item) => !MOBILE_PRIMARY.includes(item.to));
 
 /** Maps each route to its translation key — see Sidebar.tsx for the same table. */
 const NAV_KEY: Record<string, string> = {
@@ -82,12 +84,17 @@ export function MobileNav() {
           </div>
 
           <ul className="space-y-1">
-            <li>
-              <NavLink to="/profile" className={({ isActive }) => sheetItemClass(isActive)}>
-                <User className="h-5 w-5" aria-hidden="true" />
-                {t("nav.profile")}
-              </NavLink>
-            </li>
+            {/* Everything in the nav that the four-slot bottom bar cannot
+                hold. Derived rather than hardcoded, so a new nav item is
+                reachable on a phone without editing this file. */}
+            {secondary.map(({ label, to, icon: Icon }) => (
+              <li key={to}>
+                <NavLink to={to} className={({ isActive }) => sheetItemClass(isActive)}>
+                  <Icon className="h-5 w-5" aria-hidden="true" />
+                  {NAV_KEY[to] ? t(NAV_KEY[to]) : label}
+                </NavLink>
+              </li>
+            ))}
             {isStaff &&
               staffNavItems.map(({ label, to, icon: Icon }) => (
                 <li key={to}>
